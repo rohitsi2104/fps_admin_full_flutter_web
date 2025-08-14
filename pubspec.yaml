@@ -1,0 +1,27 @@
+
+name: fps_admin
+description: Admin app to monitor and manage orders via polling (no cloud).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.4.0
+  shared_preferences: ^2.2.2
+  intl: ^0.19.0
+  firebase_core: ^2.30.0
+  firebase_messaging: ^14.9.0
+  flutter_local_notifications: ^17.1.2
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

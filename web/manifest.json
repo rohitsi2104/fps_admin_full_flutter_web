@@ -1,0 +1,11 @@
+{
+  "name": "FPS Admin",
+  "short_name": "FPS Admin",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}
