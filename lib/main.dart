@@ -1,4 +1,3 @@
-// // lib/main.dart
 // import 'dart:async';
 // import 'dart:convert';
 
@@ -11,7 +10,7 @@
 // import 'login_page.dart';
 // import 'orders_list_page.dart';
 
-// // POS + Billing (NEW paths)
+// // POS + Billing
 // import 'pos/billing_service.dart';
 // import 'pos/pos_screen.dart';
 
@@ -35,7 +34,7 @@
 //   playSound: true,
 // );
 
-// /// ---------- FCM background handler (separate isolate) ----------
+// /// ---------- FCM background handler ----------
 // @pragma('vm:entry-point')
 // Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 //   if (Firebase.apps.isEmpty) {
@@ -115,13 +114,10 @@
 // void main() async {
 //   WidgetsFlutterBinding.ensureInitialized();
 
-//   // Firebase core
 //   await _ensureFirebaseInitialized();
 
-//   // Background handler
 //   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-//   // Local notifications init
 //   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 //   const iosSettings = DarwinInitializationSettings();
 //   const initSettings =
@@ -132,10 +128,9 @@
 //       AndroidFlutterLocalNotificationsPlugin>();
 //   if (androidImpl != null) {
 //     await androidImpl.createNotificationChannel(_androidChannel);
-//     await androidImpl.requestNotificationsPermission(); // Android 13+
+//     await androidImpl.requestNotificationsPermission();
 //   }
 
-//   // iOS foreground presentation options
 //   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
 //     alert: true,
 //     badge: true,
@@ -158,7 +153,7 @@
 // class _BootstrapState extends State<Bootstrap> {
 //   late final AuthStore _store = AuthStore();
 //   Api? _api;
-//   BillingService? _billing; // <-- built with a concrete token
+//   BillingService? _billing;
 //   bool _loading = true;
 //   Object? _initError;
 
@@ -180,18 +175,12 @@
 
 //   Future<void> _initAsync() async {
 //     try {
-//       await _store.load(); // load saved token (admin auth)
+//       await _store.load();
 //       _api = Api(baseUrl: kBaseUrl, token: _store.token);
+//       _billing =
+//           BillingService(baseUrl: kBaseUrl, authToken: _store.token ?? '');
 
-//       // Build BillingService with whatever token we currently have
-//       _billing = BillingService(
-//         baseUrl: kBaseUrl,
-//         authToken: _store.token ?? '',
-//       );
-
-//       // Only register device once user is logged in (has token)
 //       if (_store.token != null && _store.token!.isNotEmpty) {
-//         // Get current FCM token
 //         final fcmToken = await FirebaseMessaging.instance.getToken();
 //         if (fcmToken != null && fcmToken.isNotEmpty) {
 //           await _registerDeviceTokenWithBackend(
@@ -202,7 +191,6 @@
 //           );
 //         }
 
-//         // Re-register on token refresh
 //         _tokenRefreshSub =
 //             FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
 //           if (_store.token != null && _store.token!.isNotEmpty) {
@@ -215,7 +203,6 @@
 //           }
 //         });
 
-//         // Foreground messages → local notification
 //         _onMessageSub =
 //             FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
 //           final title = message.notification?.title ??
@@ -229,7 +216,6 @@
 //           );
 //         });
 
-//         // Notification tap → open chooser
 //         FirebaseMessaging.onMessageOpenedApp.listen((message) {
 //           if (_store.token != null && _store.token!.isNotEmpty && mounted) {
 //             Navigator.of(context).push(
@@ -249,7 +235,7 @@
 
 //   @override
 //   Widget build(BuildContext context) {
-//     final theme = ThemeData(useMaterial3: true, colorSchemeSeed: Colors.green);
+//     final theme = _appTheme();
 
 //     if (_loading) {
 //       return MaterialApp(
@@ -301,7 +287,6 @@
 //               api: _api!,
 //               store: _store,
 //               onLoggedIn: () async {
-//                 // After login, (re)register push token and rebuild billing with new token
 //                 final fcmToken = await FirebaseMessaging.instance.getToken();
 //                 if (fcmToken != null && fcmToken.isNotEmpty) {
 //                   await _registerDeviceTokenWithBackend(
@@ -321,6 +306,52 @@
 //             ),
 //     );
 //   }
+
+//   ThemeData _appTheme() {
+//     // soothing aqua/teal seed
+//     const seed = Color(0xFF06B6D4); // cyan-500 vibes
+//     final cs =
+//         ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
+
+//     return ThemeData(
+//       useMaterial3: true,
+//       colorScheme: cs,
+//       appBarTheme: AppBarTheme(
+//         backgroundColor: cs.surface,
+//         foregroundColor: cs.onSurface,
+//         elevation: 0.5,
+//       ),
+//       inputDecorationTheme: InputDecorationTheme(
+//         filled: true,
+//         fillColor: cs.surface,
+//         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+//         enabledBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(12),
+//           borderSide: BorderSide(color: cs.outlineVariant),
+//         ),
+//         focusedBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(12),
+//           borderSide: BorderSide(color: cs.primary, width: 1.4),
+//         ),
+//       ),
+//       cardTheme: CardThemeData(
+//         elevation: 1,
+//         surfaceTintColor: cs.surfaceTint,
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+//       ),
+//       snackBarTheme: SnackBarThemeData(
+//         behavior: SnackBarBehavior.floating,
+//         backgroundColor: cs.inverseSurface,
+//         contentTextStyle: TextStyle(color: cs.onInverseSurface),
+//       ),
+//       filledButtonTheme: FilledButtonThemeData(
+//         style: FilledButton.styleFrom(
+//           shape: const StadiumBorder(),
+//           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+//         ),
+//       ),
+//     );
+//   }
 // }
 
 // /// Landing with two big actions
@@ -331,6 +362,52 @@
 
 //   @override
 //   Widget build(BuildContext context) {
+//     final cs = Theme.of(context).colorScheme;
+
+//     Widget tile({
+//       required IconData icon,
+//       required String title,
+//       required String subtitle,
+//       required Color color,
+//       required VoidCallback onTap,
+//     }) {
+//       return Card(
+//         child: InkWell(
+//           borderRadius: BorderRadius.circular(16),
+//           onTap: onTap,
+//           child: Padding(
+//             padding: const EdgeInsets.all(18),
+//             child: Row(
+//               children: [
+//                 CircleAvatar(
+//                   radius: 28,
+//                   backgroundColor: color.withValues(alpha: 0.10),
+//                   child: Icon(icon, size: 30, color: color),
+//                 ),
+//                 const SizedBox(width: 16),
+//                 Expanded(
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       Text(title,
+//                           style: const TextStyle(
+//                               fontSize: 18, fontWeight: FontWeight.w700)),
+//                       const SizedBox(height: 6),
+//                       Text(
+//                         subtitle,
+//                         style: TextStyle(color: cs.onSurfaceVariant),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//                 const Icon(Icons.chevron_right),
+//               ],
+//             ),
+//           ),
+//         ),
+//       );
+//     }
+
 //     return Scaffold(
 //       appBar: AppBar(title: const Text('FPS Admin • Choose Mode')),
 //       body: Padding(
@@ -339,11 +416,11 @@
 //           builder: (context, constraints) {
 //             final isWide = constraints.maxWidth > 700;
 //             final children = [
-//               _ModeTile(
+//               tile(
 //                 icon: Icons.point_of_sale_rounded,
 //                 title: 'Manual Billing',
 //                 subtitle: 'Generate in-store bills',
-//                 color: Colors.indigo,
+//                 color: cs.primary,
 //                 onTap: () {
 //                   Navigator.push(
 //                     context,
@@ -353,11 +430,11 @@
 //                   );
 //                 },
 //               ),
-//               _ModeTile(
+//               tile(
 //                 icon: Icons.receipt_long_rounded,
 //                 title: 'Online Billing',
 //                 subtitle: 'Manage online orders',
-//                 color: Colors.green,
+//                 color: cs.secondary,
 //                 onTap: () {
 //                   Navigator.push(
 //                     context,
@@ -389,64 +466,6 @@
 //   }
 // }
 
-// class _ModeTile extends StatelessWidget {
-//   final IconData icon;
-//   final String title;
-//   final String subtitle;
-//   final Color color;
-//   final VoidCallback onTap;
-
-//   const _ModeTile({
-//     required this.icon,
-//     required this.title,
-//     required this.subtitle,
-//     required this.color,
-//     required this.onTap,
-//   });
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Card(
-//       elevation: 1.5,
-//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//       child: InkWell(
-//         borderRadius: BorderRadius.circular(16),
-//         onTap: onTap,
-//         child: Padding(
-//           padding: const EdgeInsets.all(18),
-//           child: Row(
-//             children: [
-//               CircleAvatar(
-//                 radius: 28,
-//                 backgroundColor: color.withValues(alpha: 0.10),
-//                 child: Icon(icon, size: 30, color: color),
-//               ),
-//               const SizedBox(width: 16),
-//               Expanded(
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(title,
-//                         style: const TextStyle(
-//                             fontSize: 18, fontWeight: FontWeight.w700)),
-//                     const SizedBox(height: 6),
-//                     Text(
-//                       subtitle,
-//                       style: TextStyle(
-//                         color: Colors.black.withValues(alpha: 0.60),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//               const Icon(Icons.chevron_right),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
 import 'dart:async';
 import 'dart:convert';
 
@@ -463,6 +482,9 @@ import 'orders_list_page.dart';
 import 'pos/billing_service.dart';
 import 'pos/pos_screen.dart';
 
+// Stock hub
+import 'stock/stock_page.dart';
+
 // Firebase / FCM
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -471,7 +493,6 @@ import 'firebase_options.dart';
 // Local notifications
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// ---------- Local notifications setup ----------
 final FlutterLocalNotificationsPlugin _local =
     FlutterLocalNotificationsPlugin();
 
@@ -483,25 +504,21 @@ const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
   playSound: true,
 );
 
-/// ---------- FCM background handler ----------
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+        options: DefaultFirebaseOptions.currentPlatform);
   }
 }
 
 Future<void> _ensureFirebaseInitialized() async {
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+        options: DefaultFirebaseOptions.currentPlatform);
   }
 }
 
-/// Register this device's FCM token with your Django backend
 Future<void> _registerDeviceTokenWithBackend({
   required String baseUrl,
   required String authToken,
@@ -511,7 +528,7 @@ Future<void> _registerDeviceTokenWithBackend({
   final uri = Uri.parse('$baseUrl/api/me/devices/');
   final body = jsonEncode({
     'token': fcmToken,
-    'platform': 'android', // or 'ios'
+    'platform': 'android',
     'is_admin': isAdmin,
   });
 
@@ -519,7 +536,7 @@ Future<void> _registerDeviceTokenWithBackend({
     uri,
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Token $authToken',
+      'Authorization': 'Token $authToken'
     },
     body: body,
   );
@@ -529,7 +546,6 @@ Future<void> _registerDeviceTokenWithBackend({
   }
 }
 
-/// Show a local notification while app is in foreground
 Future<void> _showForegroundNotification({
   required String title,
   required String body,
@@ -551,20 +567,14 @@ Future<void> _showForegroundNotification({
   );
 
   final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  await _local.show(
-    id,
-    title,
-    body,
-    notificationDetails,
-    payload: data == null ? null : jsonEncode(data),
-  );
+  await _local.show(id, title, body, notificationDetails,
+      payload: data == null ? null : jsonEncode(data));
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await _ensureFirebaseInitialized();
-
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -588,9 +598,7 @@ void main() async {
 
   runZonedGuarded(() {
     runApp(const Bootstrap());
-  }, (e, st) {
-    debugPrint('Uncaught error: $e\n$st');
-  });
+  }, (e, st) => debugPrint('Uncaught error: $e\n$st'));
 }
 
 class Bootstrap extends StatefulWidget {
@@ -659,18 +667,15 @@ class _BootstrapState extends State<Bootstrap> {
           final body =
               message.notification?.body ?? (message.data['body'] ?? 'Message');
           await _showForegroundNotification(
-            title: title,
-            body: body,
-            data: message.data,
-          );
+              title: title, body: body, data: message.data);
         });
 
         FirebaseMessaging.onMessageOpenedApp.listen((message) {
           if (_store.token != null && _store.token!.isNotEmpty && mounted) {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ModeChooserPage(api: _api!, billing: _billing!),
-              ),
+                  builder: (_) =>
+                      ModeChooserPage(api: _api!, billing: _billing!)),
             );
           }
         });
@@ -684,15 +689,18 @@ class _BootstrapState extends State<Bootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _appTheme();
+    final theme = ThemeData(
+      useMaterial3: true,
+      colorSchemeSeed: Colors.teal, // calm + contrast
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      appBarTheme: const AppBarTheme(centerTitle: true),
+    );
 
     if (_loading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: theme,
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -747,63 +755,14 @@ class _BootstrapState extends State<Bootstrap> {
                 }
                 setState(() {
                   _billing = BillingService(
-                    baseUrl: kBaseUrl,
-                    authToken: _store.token ?? '',
-                  );
+                      baseUrl: kBaseUrl, authToken: _store.token ?? '');
                 });
               },
             ),
     );
   }
-
-  ThemeData _appTheme() {
-    // soothing aqua/teal seed
-    const seed = Color(0xFF06B6D4); // cyan-500 vibes
-    final cs =
-        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: cs,
-      appBarTheme: AppBarTheme(
-        backgroundColor: cs.surface,
-        foregroundColor: cs.onSurface,
-        elevation: 0.5,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: cs.surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: cs.outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: cs.primary, width: 1.4),
-        ),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 1,
-        surfaceTintColor: cs.surfaceTint,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: cs.inverseSurface,
-        contentTextStyle: TextStyle(color: cs.onInverseSurface),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: const StadiumBorder(),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        ),
-      ),
-    );
-  }
 }
 
-/// Landing with two big actions
 class ModeChooserPage extends StatelessWidget {
   final Api api;
   final BillingService billing;
@@ -811,104 +770,109 @@ class ModeChooserPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    Widget tile({
-      required IconData icon,
-      required String title,
-      required String subtitle,
-      required Color color,
-      required VoidCallback onTap,
-    }) {
-      return Card(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: color.withValues(alpha: 0.10),
-                  child: Icon(icon, size: 30, color: color),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: TextStyle(color: cs.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final cards = [
+      _ModeTile(
+        icon: Icons.point_of_sale_rounded,
+        title: 'Manual Billing',
+        subtitle: 'Generate in-store bills',
+        color: Colors.indigo,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => PosScreen(service: billing))),
+      ),
+      _ModeTile(
+        icon: Icons.receipt_long_rounded,
+        title: 'Online Billing',
+        subtitle: 'Manage online orders',
+        color: Colors.green,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => OrdersListPage(api: api))),
+      ),
+      _ModeTile(
+        icon: Icons.inventory_2_rounded,
+        title: 'Stock & Reports',
+        subtitle: 'Export • Import • Edit • Sales',
+        color: Colors.teal,
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => StockPage(api: api))),
+      ),
+    ];
 
     return Scaffold(
       appBar: AppBar(title: const Text('FPS Admin • Choose Mode')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 700;
-            final children = [
-              tile(
-                icon: Icons.point_of_sale_rounded,
-                title: 'Manual Billing',
-                subtitle: 'Generate in-store bills',
-                color: cs.primary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PosScreen(service: billing),
-                    ),
-                  );
-                },
-              ),
-              tile(
-                icon: Icons.receipt_long_rounded,
-                title: 'Online Billing',
-                subtitle: 'Manage online orders',
-                color: cs.secondary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => OrdersListPage(api: api),
-                    ),
-                  );
-                },
-              ),
-            ];
-
+          builder: (_, c) {
+            final isWide = c.maxWidth > 900;
             return isWide
-                ? Row(
-                    children: [
-                      Expanded(child: children[0]),
-                      const SizedBox(width: 16),
-                      Expanded(child: children[1]),
-                    ],
-                  )
+                ? Row(children: [
+                    Expanded(child: cards[0]),
+                    const SizedBox(width: 16),
+                    Expanded(child: cards[1]),
+                    const SizedBox(width: 16),
+                    Expanded(child: cards[2]),
+                  ])
                 : ListView.separated(
-                    itemCount: children.length,
+                    itemCount: cards.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (_, i) => children[i],
+                    itemBuilder: (_, i) => cards[i],
                   );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+  const _ModeTile(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.color,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: color.withOpacity(0.10),
+                child: Icon(icon, size: 30, color: color),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text(subtitle,
+                        style:
+                            TextStyle(color: Colors.black.withOpacity(0.60))),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  color: Theme.of(context).colorScheme.outline),
+            ],
+          ),
         ),
       ),
     );
