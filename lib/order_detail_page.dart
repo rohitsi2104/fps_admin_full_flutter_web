@@ -101,6 +101,133 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  Future<void> _addItem() async {
+    final product = await showDialog<ProductLite>(
+      context: context,
+      builder: (ctx) => ProductSearchDialog(api: widget.api),
+    );
+    if (product == null) return;
+    
+    // ignore: use_build_context_synchronously
+    if (!mounted) return;
+
+    // Ask quantity
+    int quantity = 1;
+    final qty = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        int q = 1;
+        return AlertDialog(
+          title: Text('Add ${product.name}'),
+          content: StatefulBuilder(
+            builder: (context, setInner) => Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                    onPressed: () =>
+                        setInner(() => q = (q > 1) ? q - 1 : 1),
+                    icon: const Icon(Icons.remove)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text('$q', style: const TextStyle(fontSize: 20)),
+                ),
+                IconButton(
+                    onPressed: () => setInner(() => q++),
+                    icon: const Icon(Icons.add)),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, q),
+                child: const Text('Add')),
+          ],
+        );
+      },
+    );
+
+    if (qty == null) return;
+    _performUpdate(() => widget.api.addItem(_order.id, product.id, qty));
+  }
+
+  Future<void> _updateItemQty(OrderItem item, int delta) async {
+    final newQty = item.quantity + delta;
+    if (newQty < 1) {
+       // Ask to remove?
+       final confirm = await showDialog<bool>(
+         context: context,
+         builder: (ctx) => AlertDialog(
+           title: const Text('Remove Item?'),
+           content: Text('Remove ${item.productName} from order?'),
+           actions: [
+             TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('No')),
+             TextButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Yes')),
+           ],
+         )
+       );
+       if (confirm == true) {
+         _performUpdate(() => widget.api.removeItem(_order.id, item.id));
+       }
+       return;
+    }
+    _performUpdate(() => widget.api.updateItemQuantity(_order.id, item.id, newQty));
+  }
+
+  Future<void> _confirmOrder() async {
+     final priceController = TextEditingController(text: _order.totalAmount.toStringAsFixed(2));
+     final confirmed = await showDialog<bool>(
+       context: context,
+       builder: (ctx) => AlertDialog(
+         title: const Text('Confirm Order'),
+         content: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             const Text('Verify contents and set final price.'),
+             const SizedBox(height: 10),
+             TextField(
+               controller: priceController,
+               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+               decoration: const InputDecoration(labelText: 'Total Amount (₹)'),
+             )
+           ],
+         ),
+         actions: [
+           TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('Cancel')),
+           FilledButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Confirm')),
+         ],
+       )
+     );
+
+     if (confirmed == true) {
+        final amount = double.tryParse(priceController.text) ?? _order.totalAmount;
+        _performUpdate(() => widget.api.confirmOrder(_order.id, amount));
+     }
+  }
+
+  Future<void> _performUpdate(Future<Order> Function() action) async {
+    if (_pendingStatus != null) return;
+    setState(() => _pendingStatus = 'Updating...');
+    try {
+      final updated = await action();
+      if (!mounted) return;
+      setState(() {
+        _order = updated;
+        _pendingStatus = null;
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.response?.data['detail'] ?? e.message}')));
+      setState(() => _pendingStatus = null);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      setState(() => _pendingStatus = null);
+    }
+  }
+
   Future<void> _onSelectFromDropdown(String? v) async {
     if (v == null || v == _order.status) return;
     await _updateStatus(v);
@@ -128,6 +255,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final created =
         DateFormat('yyyy-MM-dd HH:mm').format(_order.createdAt.toLocal());
     final chipColor = _statusColor(context, _order.status);
+    final canEdit = (_order.status == 'PENDING' || _order.status == 'CONFIRMED'); // Allow edit in confirmed too?
+    // Let's stick to PENDING mainly, but user asked to modify orders. 
+    // Backend says PENDING. 
 
     return PopScope(
       canPop: false,
@@ -141,6 +271,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           leading:
               BackButton(onPressed: () => Navigator.of(context).pop(_order)),
           actions: [
+            if (_order.status == 'PENDING')
+               IconButton(onPressed: _addItem, icon: const Icon(Icons.add_shopping_cart)),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: DecoratedBox(
@@ -161,20 +293,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _order.status,
-                items: _statusOptions
-                    .map((s) => DropdownMenuItem(
-                          value: s,
-                          child: Text(_statusNice(s)),
-                        ))
-                    .toList(),
-                onChanged: _pendingStatus == null ? _onSelectFromDropdown : null,
-              ),
-            ),
-            const SizedBox(width: 8),
+             // ... status dropdown (only for advanced states if needed, but Confirm logic replaces mostly)
+             const SizedBox(width: 8),
           ],
         ),
         body: Column(
@@ -228,9 +348,30 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       title: Text(it.productName),
                       subtitle: Text(
                           'Qty: ${it.quantity}  •  ${_dfMoney.format(it.unitPrice)} each'),
-                      trailing: Text(
-                        _dfMoney.format(it.lineTotal),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _dfMoney.format(it.lineTotal),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                           if (_order.status == 'PENDING') ...[
+                             const SizedBox(width: 8),
+                             IconButton(
+                               icon: const Icon(Icons.remove_circle_outline, color: Colors.blueGrey),
+                               onPressed: () => _updateItemQty(it, -1),
+                               padding: EdgeInsets.zero,
+                               constraints: const BoxConstraints(),
+                             ),
+                             const SizedBox(width: 8),
+                             IconButton(
+                               icon: const Icon(Icons.add_circle_outline, color: Colors.blueAccent),
+                               onPressed: () => _updateItemQty(it, 1),
+                               padding: EdgeInsets.zero,
+                               constraints: const BoxConstraints(),
+                             ),
+                           ]
+                        ],
                       ),
                     ),
                   );
@@ -255,16 +396,41 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   case 'PENDING':
                     addButton(
                       FilledButton(
+                        onPressed: _pendingStatus == null ? _confirmOrder : null,
+                         style: FilledButton.styleFrom(
+                           backgroundColor: Colors.green.shade700,
+                           foregroundColor: Colors.white,
+                         ),
+                        child: _buttonChild(
+                          'Confirm Order',
+                          _pendingStatus == 'Updating...',
+                          Colors.white,
+                        ),
+                      ),
+                    );
+                     // Allow cancelling too?
+                     addButton(
+                         OutlinedButton(
+                             onPressed: () => _performUpdate(() => widget.api.cancel(_order.id)),
+                             child: const Text('Cancel')
+                         )
+                     );
+                    break;
+                    
+                  case 'CONFIRMED': // Waiting for customer payment
+                    addButton(
+                      FilledButton(
                         onPressed:
                             _pendingStatus == null ? _onReceived : null,
                         child: _buttonChild(
-                          'Mark Received',
+                          'Mark Received (Paid)',
                           _pendingStatus == 'RECEIVED',
                           cs.onPrimary,
                         ),
                       ),
                     );
                     break;
+                    
                   case 'RECEIVED':
                     addButton(
                       FilledButton.tonal(
@@ -310,3 +476,90 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 }
+
+class ProductSearchDialog extends StatefulWidget {
+  final Api api;
+  const ProductSearchDialog({super.key, required this.api});
+
+  @override
+  State<ProductSearchDialog> createState() => _ProductSearchDialogState();
+}
+
+class _ProductSearchDialogState extends State<ProductSearchDialog> {
+  List<ProductLite> _results = [];
+  bool _loading = false;
+  final _searchCtrl = TextEditingController();
+  
+  Future<void> _search(String query) async {
+    if (query.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      final res = await widget.api.searchProducts(query);
+      if (!mounted) return;
+      setState(() {
+        _results = res;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Search Product'),
+      content: SizedBox(
+        width: 400, // Fixed width for web/tablet
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Product Name',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => _search(_searchCtrl.text),
+                ),
+              ),
+              onSubmitted: _search,
+            ),
+            const SizedBox(height: 10),
+            if (_loading) const LinearProgressIndicator(),
+            const SizedBox(height: 10),
+            Flexible(
+              child: SizedBox(
+                height: 300,
+                child: _results.isEmpty 
+                    ? const Center(child: Text('No results'))
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _results.length,
+                        separatorBuilder: (_,__) => const Divider(),
+                        itemBuilder: (context, index) {
+                          final p = _results[index];
+                          return ListTile(
+                            title: Text(p.name),
+                            subtitle: Text('Stock: ${p.stock} • ₹${p.price}'),
+                            onTap: () => Navigator.pop(context, p),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+

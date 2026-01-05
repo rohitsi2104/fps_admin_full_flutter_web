@@ -1125,6 +1125,37 @@ class Api {
     return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
+  Future<Order> confirmOrder(int orderId, double? totalAmount) async {
+    final data = <String, dynamic>{};
+    if (totalAmount != null) data['total_amount'] = totalAmount;
+    final res = await _dio.post('admin/orders/$orderId/confirm-order/', data: data);
+    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  Future<Order> addItem(int orderId, int productId, int quantity) async {
+    final res = await _dio.post(
+      'admin/orders/$orderId/add-item/',
+      data: {'product_id': productId, 'quantity': quantity},
+    );
+    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  Future<Order> updateItemQuantity(int orderId, int itemId, int quantity) async {
+    final res = await _dio.post(
+      'admin/orders/$orderId/update-item-quantity/',
+      data: {'item_id': itemId, 'quantity': quantity},
+    );
+    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  Future<Order> removeItem(int orderId, int itemId) async {
+    final res = await _dio.post(
+      'admin/orders/$orderId/remove-item/',
+      data: {'item_id': itemId},
+    );
+    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
   // ---------------- STOCK MANAGEMENT ----------------
   // Views:
   //   - products/stock/upload/     (POST multipart)
