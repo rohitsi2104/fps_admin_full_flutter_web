@@ -1331,6 +1331,63 @@ class Api {
         .map((e) => ProductLite.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
+
+  /// Update full product info including image in one go
+  Future<ProductLite> updateProductFull({
+    required int productId,
+    int? stock,
+    double? price,
+    Uint8List? imageBytes,
+    String? imagePath,
+    String? imageName,
+  }) async {
+    final Map<String, dynamic> data = {};
+    if (stock != null) data['stock'] = stock;
+    if (price != null) data['price'] = price;
+    
+    if (imageBytes != null && imageName != null) {
+      data['image'] = MultipartFile.fromBytes(imageBytes, filename: imageName);
+    } else if (imagePath != null) {
+      data['image'] = await MultipartFile.fromFile(imagePath, filename: imageName);
+    }
+
+    final form = FormData.fromMap(data);
+
+    final res = await _dio.patch(
+      'products/$productId/',
+      data: form,
+      options: Options(
+        contentType: 'multipart/form-data',
+        validateStatus: (s) => true,
+      ),
+    );
+
+    if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
+      final body = res.data;
+      final msg = (body is Map)
+          ? (body['detail'] ??
+              body['message'] ??
+              body['error'] ??
+              'Update failed')
+          : 'Update failed';
+      throw Exception('$msg (${res.statusCode})');
+    }
+
+    return ProductLite.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  /// Update single product image (deprecated: use updateProductFull)
+  Future<ProductLite> updateProductImage({
+    required int productId,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    return updateProductFull(
+      productId: productId,
+      imageBytes: bytes,
+      imageName: filename,
+    );
+  }
 }
 
 // ----------------- HELPERS -----------------
@@ -1560,12 +1617,14 @@ class ProductLite {
   final String name;
   final int stock;
   final double price;
+  final String? imageUrl;
 
   ProductLite({
     required this.id,
     required this.name,
     required this.stock,
     required this.price,
+    this.imageUrl,
   });
 
   factory ProductLite.fromJson(Map<String, dynamic> j) => ProductLite(
@@ -1573,5 +1632,6 @@ class ProductLite {
         name: (j['name'] ?? '').toString(),
         stock: (j['stock'] as num?)?.toInt() ?? 0,
         price: _toDouble(j['price'] ?? j['mrp'] ?? j['unit_price']),
+        imageUrl: (j['image_url'] ?? j['image'])?.toString(),
       );
 }

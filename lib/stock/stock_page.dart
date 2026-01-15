@@ -909,110 +909,183 @@ class _StockPageState extends State<StockPage> {
     ProductLite? chosen;
     final stockCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
+    Uint8List? newImageBytes;
+    String? newImagePath;
+    String? newImageName;
+    bool uploadingImage = false;
 
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: const Text('Quick Adjust Product'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Product',
-                  hintText: 'Tap to choose',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: chosen == null
-                      ? null
-                      : Tooltip(
-                          message:
-                              'ID ${chosen!.id} • Stock ${chosen!.stock} • ₹${chosen!.price}',
-                          child: const Icon(Icons.info_outline),
-                        ),
+          title: const Text('Adjust Product'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Product',
+                    hintText: 'Tap to choose',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: chosen == null
+                        ? null
+                        : Tooltip(
+                            message:
+                                'ID ${chosen!.id} • Stock ${chosen!.stock} • ₹${chosen!.price}',
+                            child: const Icon(Icons.info_outline),
+                          ),
+                  ),
+                  onTap: () async {
+                    final p = await showModalBottomSheet<ProductLite>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => _ProductSearchSheet(api: widget.api),
+                    );
+                    if (p != null) {
+                      setD(() {
+                        chosen = p;
+                        stockCtrl.text = p.stock.toString();
+                        priceCtrl.text = p.price.toString();
+                        newImageBytes = null;
+                        newImagePath = null;
+                        newImageName = null;
+                      });
+                    }
+                  },
                 ),
-                onTap: () async {
-                  final p = await showModalBottomSheet<ProductLite>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (_) => _ProductSearchSheet(api: widget.api),
-                  );
-                  if (p != null) setD(() => chosen = p);
-                },
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: stockCtrl,
-                keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'New stock (optional)'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: priceCtrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration:
-                    const InputDecoration(labelText: 'New price (optional)'),
-              ),
-            ],
+                if (chosen != null) ...[
+                  const SizedBox(height: 16),
+                  const Text('Product Image',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: uploadingImage
+                        ? null
+                        : () async {
+                            try {
+                              final res =
+                                  await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                                withData: true,
+                              );
+                              if (res != null && res.files.isNotEmpty) {
+                                final f = res.files.first;
+                                setD(() {
+                                  newImageBytes = f.bytes;
+                                  newImagePath = f.path;
+                                  newImageName = f.name;
+                                });
+                              }
+                            } catch (e) {
+                              if (!ctx.mounted) return;
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          },
+                    child: Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey.shade50,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (newImageBytes != null)
+                            Image.memory(newImageBytes!, fit: BoxFit.contain)
+                          else if (chosen?.imageUrl != null)
+                            Image.network(chosen!.imageUrl!, fit: BoxFit.contain)
+                          else
+                            const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_a_photo_outlined, size: 32),
+                                Text('Tap to upload'),
+                              ],
+                            ),
+                          if (uploadingImage)
+                            Container(
+                              color: Colors.white70,
+                              child: const CircularProgressIndicator(),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (newImageName != null && !uploadingImage)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text('Selected: $newImageName', style: const TextStyle(fontSize: 10, color: Colors.blue)),
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: stockCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Stock Quantity'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: priceCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Price (₹)'),
+                  ),
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Update')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL'),
+            ),
+            if (chosen != null)
+              ElevatedButton(
+                onPressed: uploadingImage
+                    ? null
+                    : () async {
+                        final s = int.tryParse(stockCtrl.text);
+                        final p = double.tryParse(priceCtrl.text);
+                        if (s == null || p == null) return;
+
+                        setD(() => uploadingImage = true);
+                        try {
+                          await widget.api.updateProductFull(
+                            productId: chosen!.id,
+                            stock: s,
+                            price: p,
+                            imageBytes: newImageBytes,
+                            imagePath: newImagePath,
+                            imageName: newImageName,
+                          );
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx, true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Product updated')),
+                          );
+                        } catch (e) {
+                          setD(() => uploadingImage = false);
+                          if (!ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('Update failed: $e')),
+                          );
+                        }
+                      },
+                child: const Text('SAVE'),
+              ),
           ],
         ),
       ),
     );
-
-    if (ok != true) return;
-
-    final stock = stockCtrl.text.trim().isEmpty
-        ? null
-        : int.tryParse(stockCtrl.text.trim());
-    final price = priceCtrl.text.trim().isEmpty
-        ? null
-        : double.tryParse(priceCtrl.text.trim());
-
-    if (chosen == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose a product')),
-      );
-      return;
-    }
-    if (stock == null && price == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter stock and/or price to update')),
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      await widget.api.updateProductSingle(
-        productId: chosen!.id,
-        stock: stock,
-        price: price,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product updated')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Update failed: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _pickDay() async {

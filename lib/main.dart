@@ -484,6 +484,7 @@ import 'pos/pos_screen.dart';
 
 // Stock hub
 import 'stock/stock_page.dart';
+import 'product_list_page.dart';
 
 // Firebase / FCM
 import 'package:firebase_core/firebase_core.dart';
@@ -788,9 +789,17 @@ class ModeChooserPage extends StatelessWidget {
             MaterialPageRoute(builder: (_) => OrdersListPage(api: api))),
       ),
       _ModeTile(
+        icon: Icons.shopping_bag_rounded,
+        title: 'Product Catalog',
+        subtitle: 'View, Search & Edit',
+        color: Colors.orange,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => ProductListPage(api: api))),
+      ),
+      _ModeTile(
         icon: Icons.inventory_2_rounded,
         title: 'Stock & Reports',
-        subtitle: 'Export • Import • Edit • Sales',
+        subtitle: 'Export • Import • Sales',
         color: Colors.teal,
         onTap: () => Navigator.push(
             context, MaterialPageRoute(builder: (_) => StockPage(api: api))),
