@@ -22,17 +22,23 @@ class _ProductListPageState extends State<ProductListPage> {
   bool _loading = true;
   String _query = '';
   Timer? _debounce;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted || _query.isNotEmpty) return; // Only auto-refresh if not searching
+      _fetchProducts();
+    });
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     _debounce?.cancel();
+    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -188,9 +194,26 @@ class _ProductCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Image Section
+            // Top Header: Product Name
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
+                border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3))),
+              ),
+              child: Text(
+                product.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -237,35 +260,23 @@ class _ProductCard extends StatelessWidget {
             // Info Section
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    money.format(product.price),
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        money.format(product.price),
-                        style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        'Qty: ${product.stock}',
-                        style: TextStyle(
-                          color: isOutOfStock ? Colors.red : cs.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Qty: ${product.stock}',
+                    style: TextStyle(
+                      color: isOutOfStock ? Colors.red : cs.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

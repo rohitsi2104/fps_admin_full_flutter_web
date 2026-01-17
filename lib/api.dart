@@ -1431,7 +1431,9 @@ class Order {
   final String pincode;
   final double totalAmount;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final List<OrderItem> items;
+  final String? customerPhone;
 
   Order({
     required this.id,
@@ -1446,7 +1448,9 @@ class Order {
     required this.pincode,
     required this.totalAmount,
     required this.createdAt,
+    required this.updatedAt,
     required this.items,
+    this.customerPhone,
   });
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
@@ -1462,9 +1466,11 @@ class Order {
         pincode: j['pincode'] ?? '',
         totalAmount: _toDouble(j['total_amount']),
         createdAt: DateTime.parse(j['created_at'] as String),
+        updatedAt: DateTime.parse(j['updated_at'] as String),
         items: (j['items'] as List? ?? [])
             .map((e) => OrderItem.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
+        customerPhone: j['customer_phone']?.toString(),
       );
 }
 

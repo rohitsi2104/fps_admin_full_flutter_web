@@ -1,9 +1,9 @@
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
-
 import 'api.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 const _statusOptions = [
   'PENDING',
@@ -58,11 +58,43 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   late Order _order;
   final _dfMoney = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
   String? _pendingStatus;
+  Timer? _refreshTimer;
+  DateTime _lastUpdateTime = DateTime.now();
+  final _scrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _order = widget.order;
+    _startRefreshTimer();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) => _refreshOrder());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshOrder() async {
+    if (_pendingStatus != null || !mounted) return;
+    // Don't refresh if we just updated something (allow 3s for backend consistency)
+    if (DateTime.now().difference(_lastUpdateTime).inSeconds < 3) return;
+    try {
+      final updated = await widget.api.getOrder(_order.id);
+      if (mounted) {
+        setState(() {
+          _order = updated;
+        });
+      }
+    } catch (e) {
+      // Background refresh failed, ignore or log silently to not disturb user
+    }
   }
 
   Future<void> _updateStatus(String status) async {
@@ -150,30 +182,175 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
 
     if (qty == null) return;
-    _performUpdate(() => widget.api.addItem(_order.id, product.id, qty));
+    _performUpdate(
+      () => widget.api.addItem(_order.id, product.id, qty),
+      optimistic: (current) {
+        // Find if item already exists
+        final idx = current.items.indexWhere((it) => it.productId == product.id);
+        final List<OrderItem> newItems;
+        if (idx >= 0) {
+          final existing = current.items[idx];
+          final updated = OrderItem(
+            id: existing.id,
+            productId: existing.productId,
+            productName: existing.productName,
+            quantity: existing.quantity + qty,
+            unitPrice: existing.unitPrice,
+            lineTotal: (existing.quantity + qty) * existing.unitPrice,
+            imageUrl: existing.imageUrl,
+          );
+          newItems = List<OrderItem>.from(current.items);
+          newItems[idx] = updated;
+        } else {
+          // New item (we don't have its ID yet, use a temp one)
+          final temp = OrderItem(
+            id: -1, 
+            productId: product.id,
+            productName: product.name,
+            quantity: qty,
+            unitPrice: product.price,
+            lineTotal: qty * product.price,
+            imageUrl: product.imageUrl,
+          );
+          newItems = List<OrderItem>.from(current.items)..add(temp);
+        }
+
+        double newTotal = 0;
+        for (final it in newItems) {
+          newTotal += it.lineTotal;
+        }
+
+        return Order(
+          id: current.id,
+          status: current.status,
+          statusDisplay: current.statusDisplay,
+          shippingName: current.shippingName,
+          shippingPhone: current.shippingPhone,
+          addressLine1: current.addressLine1,
+          addressLine2: current.addressLine2,
+          city: current.city,
+          state: current.state,
+          pincode: current.pincode,
+          totalAmount: newTotal,
+          createdAt: current.createdAt,
+          updatedAt: current.updatedAt,
+          items: newItems,
+          customerPhone: current.customerPhone,
+        );
+      },
+      onInitialStateApplied: () {
+         // Scroll to bottom after adding new item
+         Future.delayed(const Duration(milliseconds: 150), () {
+           if (_scrollCtrl.hasClients) {
+             _scrollCtrl.animateTo(
+               _scrollCtrl.position.maxScrollExtent,
+               duration: const Duration(milliseconds: 400),
+               curve: Curves.easeOut,
+             );
+           }
+         });
+      }
+    );
   }
 
   Future<void> _updateItemQty(OrderItem item, int delta) async {
     final newQty = item.quantity + delta;
     if (newQty < 1) {
-       // Ask to remove?
-       final confirm = await showDialog<bool>(
-         context: context,
-         builder: (ctx) => AlertDialog(
-           title: const Text('Remove Item?'),
-           content: Text('Remove ${item.productName} from order?'),
-           actions: [
-             TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('No')),
-             TextButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Yes')),
-           ],
-         )
-       );
-       if (confirm == true) {
-         _performUpdate(() => widget.api.removeItem(_order.id, item.id));
-       }
-       return;
+      _removeItem(item);
+      return;
     }
-    _performUpdate(() => widget.api.updateItemQuantity(_order.id, item.id, newQty));
+
+    final newQtyVal = newQty;
+    _performUpdate(
+      () => widget.api.updateItemQuantity(_order.id, item.id, newQtyVal),
+      optimistic: (current) {
+        final newItems = current.items.map((it) {
+          if (it.id == item.id) {
+            final lineTotal = newQtyVal * it.unitPrice;
+            return OrderItem(
+              id: it.id,
+              productId: it.productId,
+              productName: it.productName,
+              quantity: newQtyVal,
+              unitPrice: it.unitPrice,
+              lineTotal: lineTotal,
+              imageUrl: it.imageUrl,
+            );
+          }
+          return it;
+        }).toList();
+
+        double newTotal = 0;
+        for (final it in newItems) {
+          newTotal += it.lineTotal;
+        }
+
+        return Order(
+          id: current.id,
+          status: current.status,
+          statusDisplay: current.statusDisplay,
+          shippingName: current.shippingName,
+          shippingPhone: current.shippingPhone,
+          addressLine1: current.addressLine1,
+          addressLine2: current.addressLine2,
+          city: current.city,
+          state: current.state,
+          pincode: current.pincode,
+          totalAmount: newTotal,
+          createdAt: current.createdAt,
+          updatedAt: current.updatedAt,
+          items: newItems,
+          customerPhone: current.customerPhone,
+        );
+      },
+    );
+  }
+
+  Future<void> _removeItem(OrderItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Item?'),
+        content: Text('Remove ${item.productName} from order?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('No')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Yes')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    _performUpdate(
+      () => widget.api.removeItem(_order.id, item.id),
+      optimistic: (current) {
+        final newItems = current.items.where((it) => it.id != item.id).toList();
+        double newTotal = 0;
+        for (final it in newItems) {
+          newTotal += it.lineTotal;
+        }
+        return Order(
+          id: current.id,
+          status: current.status,
+          statusDisplay: current.statusDisplay,
+          shippingName: current.shippingName,
+          shippingPhone: current.shippingPhone,
+          addressLine1: current.addressLine1,
+          addressLine2: current.addressLine2,
+          city: current.city,
+          state: current.state,
+          pincode: current.pincode,
+          totalAmount: newTotal,
+          createdAt: current.createdAt,
+          updatedAt: current.updatedAt,
+          items: newItems,
+          customerPhone: current.customerPhone,
+        );
+      },
+    );
   }
 
   Future<void> _confirmOrder() async {
@@ -207,9 +384,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
      }
   }
 
-  Future<void> _performUpdate(Future<Order> Function() action) async {
+  Future<void> _performUpdate(
+    Future<Order> Function() action, {
+    Order Function(Order)? optimistic,
+    VoidCallback? onInitialStateApplied,
+  }) async {
     if (_pendingStatus != null) return;
-    setState(() => _pendingStatus = 'Updating...');
+
+    Order? original;
+    if (optimistic != null) {
+      setState(() => _order = optimistic(_order));
+      if (onInitialStateApplied != null) onInitialStateApplied();
+    }
+
+    setState(() {
+       _pendingStatus = 'Updating...';
+       _lastUpdateTime = DateTime.now();
+    });
     try {
       final updated = await action();
       if (!mounted) return;
@@ -219,13 +410,22 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       });
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.response?.data['detail'] ?? e.message}')));
+      if (original != null) setState(() => _order = original!);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: ${e.response?.data['detail'] ?? e.message}')));
       setState(() => _pendingStatus = null);
     } catch (e) {
       if (!mounted) return;
+      if (original != null) setState(() => _order = original!);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       setState(() => _pendingStatus = null);
     }
+  }
+
+  void _call(String phone) {
+    if (phone.isEmpty) return;
+    String clean = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    launchUrlString('tel:$clean');
   }
 
   Future<void> _onSelectFromDropdown(String? v) async {
@@ -304,20 +504,56 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               padding: const EdgeInsets.all(12.0),
               child: Card(
                 elevation: 1,
-                child: ListTile(
-                  title:
-                      Text('${_order.shippingName} • ${_order.shippingPhone}'),
-                  subtitle: Text(
-                    '${_order.addressLine1}\n'
-                    '${_order.addressLine2.isNotEmpty ? "${_order.addressLine2}\n" : ""}'
-                    '${_order.city}, ${_order.state} ${_order.pincode}\n'
-                    'Placed: $created',
-                  ),
-                  trailing: Text(
-                    _dfMoney.format(_order.totalAmount),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading:
+                          const Icon(Icons.location_on, color: Colors.blueGrey),
+                      title: Text(_order.shippingName),
+                      subtitle: Text(
+                        '${_order.addressLine1}\n'
+                        '${_order.addressLine2.isNotEmpty ? "${_order.addressLine2}\n" : ""}'
+                        '${_order.city}, ${_order.state} ${_order.pincode}\n'
+                        'Placed: $created',
+                      ),
+                      trailing: Text(
+                        _dfMoney.format(_order.totalAmount),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      visualDensity: VisualDensity.compact,
+                      title: Row(
+                        children: [
+                          const Icon(Icons.phone_outlined, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Shipping: ${_order.shippingPhone}'),
+                        ],
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.call, color: Colors.green),
+                        onPressed: () => _call(_order.shippingPhone),
+                      ),
+                    ),
+                    if (_order.customerPhone != null &&
+                        _order.customerPhone != _order.shippingPhone)
+                      ListTile(
+                        visualDensity: VisualDensity.compact,
+                        title: Row(
+                          children: [
+                            const Icon(Icons.account_circle_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Account: ${_order.customerPhone}'),
+                          ],
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.call, color: Colors.green),
+                          onPressed: () => _call(_order.customerPhone!),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -325,6 +561,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             // Items
             Expanded(
               child: ListView.separated(
+                controller: _scrollCtrl,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 itemCount: _order.items.length,
@@ -332,45 +569,96 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 itemBuilder: (context, i) {
                   final it = _order.items[i];
                   return Card(
+                    key: ValueKey(it.id == -1 ? 'temp-${it.productId}' : it.id),
                     elevation: 1,
-                    child: ListTile(
-                      leading: (it.imageUrl != null)
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                it.imageUrl!,
-                                width: 52,
-                                height: 52,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : const Icon(Icons.inventory_2_outlined),
-                      title: Text(it.productName),
-                      subtitle: Text(
-                          'Qty: ${it.quantity}  •  ${_dfMoney.format(it.unitPrice)} each'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                      // Header: Product Name
                           Text(
-                            _dfMoney.format(it.lineTotal),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            it.productName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
-                           if (_order.status == 'PENDING') ...[
-                             const SizedBox(width: 8),
-                             IconButton(
-                               icon: const Icon(Icons.remove_circle_outline, color: Colors.blueGrey),
-                               onPressed: () => _updateItemQty(it, -1),
-                               padding: EdgeInsets.zero,
-                               constraints: const BoxConstraints(),
-                             ),
-                             const SizedBox(width: 8),
-                             IconButton(
-                               icon: const Icon(Icons.add_circle_outline, color: Colors.blueAccent),
-                               onPressed: () => _updateItemQty(it, 1),
-                               padding: EdgeInsets.zero,
-                               constraints: const BoxConstraints(),
-                             ),
-                           ]
+                          const Divider(height: 12),
+                          Row(
+                            children: [
+                              // Image/Icon
+                              (it.imageUrl != null)
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(
+                                        it.imageUrl!,
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Icon(Icons.inventory_2_outlined, size: 20, color: Colors.blueGrey),
+                                    ),
+                              const SizedBox(width: 12),
+                              // Details
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Qty: ${it.quantity}  •  ${_dfMoney.format(it.unitPrice)} ea',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Subtotal: ${_dfMoney.format(it.lineTotal)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Actions
+                              if (_order.status == 'PENDING')
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+                                      onPressed: () => _removeItem(it),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline, color: Colors.blueGrey, size: 22),
+                                      onPressed: () => _updateItemQty(it, -1),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: Colors.blueAccent, size: 22),
+                                      onPressed: () => _updateItemQty(it, 1),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ),

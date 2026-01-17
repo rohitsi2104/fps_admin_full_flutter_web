@@ -429,11 +429,16 @@ class _PosScreenState extends State<PosScreen> with TickerProviderStateMixin {
   bool _submitting = false;
 
   final _money = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _warm();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted || _submitting) return;
+      _warm();
+    });
   }
 
   Future<void> _warm() async {
@@ -447,6 +452,7 @@ class _PosScreenState extends State<PosScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _debounce?.cancel();
+    _autoRefreshTimer?.cancel();
     _searchCtrl.dispose();
     _custNameCtrl.dispose();
     _custPhoneCtrl.dispose();

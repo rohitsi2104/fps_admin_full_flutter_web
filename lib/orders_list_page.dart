@@ -72,7 +72,7 @@ class _OrdersListPageState extends State<OrdersListPage>
 
       _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       _lastSeenUtc = _orders.isNotEmpty
-          ? _orders.first.createdAt.toUtc()
+          ? _orders.map((e) => e.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b).toUtc()
           : DateTime.now().toUtc();
 
       if (!initial && inserted > 0) {
