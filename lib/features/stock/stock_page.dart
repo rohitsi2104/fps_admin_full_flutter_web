@@ -84,7 +84,7 @@
 //       }
 
 //       setState(() => _busy = true);
-//       await widget.api.uploadStockXlsx(bytes: bytes, filename: f.name);
+//       await ref.read(apiProvider).uploadStockXlsx(bytes: bytes, filename: f.name);
 
 //       if (!mounted) return;
 //       ScaffoldMessenger.of(context).showSnackBar(
@@ -492,7 +492,7 @@
 //       }
 
 //       setState(() => _busy = true);
-//       await widget.api.uploadStockXlsx(bytes: bytes, filename: f.name);
+//       await ref.read(apiProvider).uploadStockXlsx(bytes: bytes, filename: f.name);
 
 //       if (!mounted) return;
 //       ScaffoldMessenger.of(context).showSnackBar(
@@ -811,21 +811,22 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../api.dart';
+import '../../core/api.dart';
+import '../../providers/api_provider.dart';
 
-class StockPage extends StatefulWidget {
-  final Api api;
-  const StockPage({super.key, required this.api});
+class StockPage extends ConsumerStatefulWidget {
+  const StockPage({super.key});
 
   @override
-  State<StockPage> createState() => _StockPageState();
+  ConsumerState<StockPage> createState() => _StockPageState();
 }
 
-class _StockPageState extends State<StockPage> {
+class _StockPageState extends ConsumerState<StockPage> {
   final _money = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
 
   bool _busy = false;
@@ -835,7 +836,7 @@ class _StockPageState extends State<StockPage> {
   Future<void> _downloadStock() async {
     setState(() => _busy = true);
     try {
-      final sf = await widget.api.downloadStockXlsx();
+      final sf = await ref.read(apiProvider).downloadStockXlsx();
 
       // Save into a writable temp (user can open)
       final dir = await getTemporaryDirectory();
@@ -889,7 +890,7 @@ class _StockPageState extends State<StockPage> {
       }
 
       setState(() => _busy = true);
-      await widget.api.uploadStockXlsx(bytes: bytes, filename: f.name);
+      await ref.read(apiProvider).uploadStockXlsx(bytes: bytes, filename: f.name);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -941,7 +942,7 @@ class _StockPageState extends State<StockPage> {
                     final p = await showModalBottomSheet<ProductLite>(
                       context: context,
                       isScrollControlled: true,
-                      builder: (_) => _ProductSearchSheet(api: widget.api),
+                      builder: (_) => const _ProductSearchSheet(),
                     );
                     if (p != null) {
                       setD(() {
@@ -1059,7 +1060,7 @@ class _StockPageState extends State<StockPage> {
 
                         setD(() => uploadingImage = true);
                         try {
-                          await widget.api.updateProductFull(
+                          await ref.read(apiProvider).updateProductFull(
                             productId: chosen!.id,
                             stock: s,
                             price: p,
@@ -1102,7 +1103,7 @@ class _StockPageState extends State<StockPage> {
   Future<void> _loadReport() async {
     setState(() => _busy = true);
     try {
-      final rep = await widget.api.dailySalesJson(_day);
+      final rep = await ref.read(apiProvider).dailySalesJson(_day);
       if (!mounted) return;
       setState(() => _report = rep);
     } catch (e) {
@@ -1299,15 +1300,14 @@ class _StockPageState extends State<StockPage> {
 }
 
 /// Bottom sheet to search products (name) and choose one.
-class _ProductSearchSheet extends StatefulWidget {
-  final Api api;
-  const _ProductSearchSheet({required this.api});
+class _ProductSearchSheet extends ConsumerStatefulWidget {
+  const _ProductSearchSheet({super.key});
 
   @override
-  State<_ProductSearchSheet> createState() => _ProductSearchSheetState();
+  ConsumerState<_ProductSearchSheet> createState() => _ProductSearchSheetState();
 }
 
-class _ProductSearchSheetState extends State<_ProductSearchSheet> {
+class _ProductSearchSheetState extends ConsumerState<_ProductSearchSheet> {
   final _q = TextEditingController();
   List<ProductLite> _results = [];
   bool _loading = false;
@@ -1326,7 +1326,7 @@ class _ProductSearchSheetState extends State<_ProductSearchSheet> {
       if (!mounted) return;
       setState(() => _loading = true);
       try {
-        final r = await widget.api.searchProducts(s, limit: 30);
+        final r = await ref.read(apiProvider).searchProducts(s, limit: 30);
         if (!mounted) return;
         setState(() => _results = r);
       } catch (_) {

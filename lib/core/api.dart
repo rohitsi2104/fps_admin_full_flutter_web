@@ -1,197 +1,4 @@
-// // import 'package:dio/dio.dart';
-
-// // double _toDouble(dynamic v) {
-// //   if (v == null) return 0.0;
-// //   if (v is num) return v.toDouble();
-// //   if (v is String) return double.tryParse(v) ?? 0.0;
-// //   return 0.0;
-// // }
-
-// // class Api {
-// //   final Dio _dio;
-// //   Api({required String baseUrl, required String? token})
-// //       : _dio = Dio(BaseOptions(
-// //           baseUrl: baseUrl, // e.g. http://127.0.0.1:8000/api/
-// //           headers: {
-// //             if (token != null) 'Authorization': 'Token $token',
-// //             'Content-Type': 'application/json',
-// //             'Accept': 'application/json',
-// //           },
-// //           connectTimeout: const Duration(seconds: 10),
-// //           receiveTimeout: const Duration(seconds: 20),
-// //         ));
-
-// //   void setToken(String? token) {
-// //     if (token == null) {
-// //       _dio.options.headers.remove('Authorization');
-// //     } else {
-// //       _dio.options.headers['Authorization'] = 'Token $token';
-// //     }
-// //   }
-
-// //   Future<String> login(
-// //       {required String phone, required String password}) async {
-// //     final payloads = [
-// //       {'phone': phone, 'password': password},
-// //       {'username': phone, 'password': password},
-// //     ];
-
-// //     DioException? lastErr;
-
-// //     for (final data in payloads) {
-// //       try {
-// //         final res = await _dio.post(
-// //           'users/login/',
-// //           data: data,
-// //           options: Options(headers: {
-// //             'Authorization': null,
-// //             'Content-Type': 'application/json',
-// //             'Accept': 'application/json',
-// //           }),
-// //         );
-// //         final body = res.data;
-// //         if (body is Map && body['token'] is String) {
-// //           final t = body['token'] as String;
-// //           setToken(t);
-// //           return t;
-// //         }
-// //         throw Exception('Invalid login response: $body');
-// //       } on DioException catch (e) {
-// //         lastErr = e;
-// //         if ((e.response?.statusCode ?? 0) != 401) break;
-// //       }
-// //     }
-
-// //     if (lastErr != null) {
-// //       final code = lastErr.response?.statusCode;
-// //       final msg = lastErr.response?.data is Map
-// //           ? ((lastErr.response!.data['detail'] ??
-// //                   lastErr.response!.data['error'] ??
-// //                   lastErr.message)
-// //               .toString())
-// //           : lastErr.message;
-// //       throw Exception('Login failed (${code ?? 'no code'}): $msg');
-// //     }
-// //     throw Exception('Login failed for unknown reasons');
-// //   }
-
-// //   // ------------ ADMIN ORDERS API ------------
-// //   Future<List<Order>> listOrders({String? status, DateTime? since}) async {
-// //     final qp = <String, dynamic>{'source': 'ONLINE'};
-// //     if (status != null) qp['status'] = status;
-// //     if (since != null) qp['since'] = since.toUtc().toIso8601String();
-
-// //     final res = await _dio.get('admin/orders/', queryParameters: qp);
-// //     final data = res.data;
-// //     if (data is List) {
-// //       return data
-// //           .map((e) => Order.fromJson(e as Map<String, dynamic>))
-// //           .toList();
-// //     }
-// //     throw Exception('Invalid orders response');
-// //   }
-
-// //   Future<Order> setStatus(int orderId, String status) async {
-// //     final res = await _dio
-// //         .patch('admin/orders/$orderId/status/', data: {'status': status});
-// //     return Order.fromJson(res.data as Map<String, dynamic>);
-// //   }
-
-// //   Future<Order> cancel(int orderId) async {
-// //     final res = await _dio.post('admin/orders/$orderId/cancel/');
-// //     return Order.fromJson(res.data as Map<String, dynamic>);
-// //   }
-
-// //   Future<Order> getOrder(int orderId) async {
-// //     final res = await _dio.get('admin/orders/$orderId/');
-// //     return Order.fromJson(res.data as Map<String, dynamic>);
-// //   }
-// // }
-
-// // // ----------------- MODELS -----------------
-
-// // class Order {
-// //   final int id;
-// //   final String status;
-// //   final String statusDisplay;
-// //   final String shippingName;
-// //   final String shippingPhone;
-// //   final String addressLine1;
-// //   final String addressLine2;
-// //   final String city;
-// //   final String state;
-// //   final String pincode;
-// //   final double totalAmount;
-// //   final DateTime createdAt;
-// //   final List<OrderItem> items;
-
-// //   Order({
-// //     required this.id,
-// //     required this.status,
-// //     required this.statusDisplay,
-// //     required this.shippingName,
-// //     required this.shippingPhone,
-// //     required this.addressLine1,
-// //     required this.addressLine2,
-// //     required this.city,
-// //     required this.state,
-// //     required this.pincode,
-// //     required this.totalAmount,
-// //     required this.createdAt,
-// //     required this.items,
-// //   });
-
-// //   factory Order.fromJson(Map<String, dynamic> j) => Order(
-// //         id: j['id'] as int,
-// //         status: j['status'] as String,
-// //         statusDisplay: j['status_display'] as String? ?? j['status'] as String,
-// //         shippingName: j['shipping_name'] ?? '',
-// //         shippingPhone: j['shipping_phone'] ?? '',
-// //         addressLine1: j['address_line1'] ?? '',
-// //         addressLine2: j['address_line2'] ?? '',
-// //         city: j['city'] ?? '',
-// //         state: j['state'] ?? '',
-// //         pincode: j['pincode'] ?? '',
-// //         totalAmount: _toDouble(j['total_amount']),
-// //         createdAt: DateTime.parse(j['created_at'] as String),
-// //         items: (j['items'] as List? ?? [])
-// //             .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
-// //             .toList(),
-// //       );
-// // }
-
-// // class OrderItem {
-// //   final int id;
-// //   final int productId;
-// //   final String productName;
-// //   final int quantity;
-// //   final double unitPrice;
-// //   final double lineTotal;
-// //   final String? imageUrl;
-
-// //   OrderItem({
-// //     required this.id,
-// //     required this.productId,
-// //     required this.productName,
-// //     required this.quantity,
-// //     required this.unitPrice,
-// //     required this.lineTotal,
-// //     required this.imageUrl,
-// //   });
-
-// //   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
-// //         id: j['id'] as int,
-// //         productId: j['product_id'] as int,
-// //         productName: j['product_name'] as String? ?? '',
-// //         quantity: j['quantity'] as int? ?? 0,
-// //         unitPrice: _toDouble(j['unit_price']),
-// //         lineTotal: _toDouble(j['line_total']),
-// //         imageUrl: j['image_url'] as String?,
-// //       );
-// // }
-
-// // lib/api.dart
-// import 'dart:typed_data';
+import 'dart:typed_data';
 // import 'package:dio/dio.dart';
 
 // double _toDouble(dynamic v) {
@@ -1094,10 +901,23 @@ class Api {
 
   // ---------------- ADMIN ORDERS ----------------
 
-  Future<List<Order>> listOrders({String? status, DateTime? since}) async {
+  Future<List<Order>> listOrders({
+    String? status,
+    DateTime? since,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
     final qp = <String, dynamic>{'source': 'ONLINE'};
     if (status != null) qp['status'] = status;
     if (since != null) qp['since'] = since.toUtc().toIso8601String();
+    if (dateFrom != null) {
+      qp['date_from'] =
+          '${dateFrom.year.toString().padLeft(4, '0')}-${dateFrom.month.toString().padLeft(2, '0')}-${dateFrom.day.toString().padLeft(2, '0')}';
+    }
+    if (dateTo != null) {
+      qp['date_to'] =
+          '${dateTo.year.toString().padLeft(4, '0')}-${dateTo.month.toString().padLeft(2, '0')}-${dateTo.day.toString().padLeft(2, '0')}';
+    }
 
     final res = await _dio.get('admin/orders/', queryParameters: qp);
     final data = res.data;
@@ -1112,24 +932,33 @@ class Api {
   Future<Order> setStatus(int orderId, String status) async {
     final res = await _dio
         .patch('admin/orders/$orderId/status/', data: {'status': status});
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> cancel(int orderId) async {
     final res = await _dio.post('admin/orders/$orderId/cancel/');
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> getOrder(int orderId) async {
     final res = await _dio.get('admin/orders/$orderId/');
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> confirmOrder(int orderId, double? totalAmount) async {
     final data = <String, dynamic>{};
     if (totalAmount != null) data['total_amount'] = totalAmount;
     final res = await _dio.post('admin/orders/$orderId/confirm-order/', data: data);
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
+  }
+
+  Future<Order> updateAmount(int orderId, double totalAmount) async {
+    final res = await _dio.patch(
+      'admin/orders/$orderId/update-amount/',
+      data: {'total_amount': totalAmount},
+    );
+    return Order.fromJson(
+        Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> addItem(int orderId, int productId, int quantity) async {
@@ -1137,7 +966,7 @@ class Api {
       'admin/orders/$orderId/add-item/',
       data: {'product_id': productId, 'quantity': quantity},
     );
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> updateItemQuantity(int orderId, int itemId, int quantity) async {
@@ -1145,7 +974,7 @@ class Api {
       'admin/orders/$orderId/update-item-quantity/',
       data: {'item_id': itemId, 'quantity': quantity},
     );
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   Future<Order> removeItem(int orderId, int itemId) async {
@@ -1153,7 +982,7 @@ class Api {
       'admin/orders/$orderId/remove-item/',
       data: {'item_id': itemId},
     );
-    return Order.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return Order.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   // ---------------- STOCK MANAGEMENT ----------------
@@ -1172,6 +1001,7 @@ class Api {
         responseType: ResponseType.bytes,
         headers: {'Accept': '*/*', 'Accept-Encoding': 'identity'},
         validateStatus: (s) => true,
+        receiveTimeout: const Duration(minutes: 2),
       ),
     );
 
@@ -1204,6 +1034,8 @@ class Api {
       options: Options(
         contentType: 'multipart/form-data',
         validateStatus: (s) => true,
+        sendTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
       ),
     );
 
@@ -1245,7 +1077,8 @@ class Api {
       throw Exception('$msg (${res.statusCode})');
     }
 
-    final map = Map<String, dynamic>.from(res.data as Map);
+    final raw = res.data;
+    final map = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     return BulkUpdateResult(
       ok: (map['ok'] == true),
       updated: (map['updated'] as num?)?.toInt() ?? 0,
@@ -1281,7 +1114,7 @@ class Api {
       throw Exception(
           'Report failed (${res.statusCode}): ${res.statusMessage}');
     }
-    return DailySales.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return DailySales.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   /// Daily sales XLSX download (?format=xlsx)
@@ -1293,6 +1126,7 @@ class Api {
         responseType: ResponseType.bytes,
         headers: {'Accept': '*/*', 'Accept-Encoding': 'identity'},
         validateStatus: (s) => true,
+        receiveTimeout: const Duration(minutes: 2),
       ),
     );
 
@@ -1373,7 +1207,7 @@ class Api {
       throw Exception('$msg (${res.statusCode})');
     }
 
-    return ProductLite.fromJson(Map<String, dynamic>.from(res.data as Map));
+    return ProductLite.fromJson(Map<String, dynamic>.from(res.data is Map ? res.data as Map : {}));
   }
 
   /// Update single product image (deprecated: use updateProductFull)
@@ -1454,21 +1288,22 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
-        id: j['id'] as int,
-        status: j['status'] as String,
-        statusDisplay: j['status_display'] as String? ?? j['status'] as String,
-        shippingName: j['shipping_name'] ?? '',
-        shippingPhone: j['shipping_phone'] ?? '',
-        addressLine1: j['address_line1'] ?? '',
-        addressLine2: j['address_line2'] ?? '',
-        city: j['city'] ?? '',
-        state: j['state'] ?? '',
-        pincode: j['pincode'] ?? '',
+        id: (j['id'] as num).toInt(),
+        status: j['status']?.toString() ?? 'PENDING',
+        statusDisplay: j['status_display']?.toString() ?? j['status']?.toString() ?? '',
+        shippingName: j['shipping_name']?.toString() ?? '',
+        shippingPhone: j['shipping_phone']?.toString() ?? '',
+        addressLine1: j['address_line1']?.toString() ?? '',
+        addressLine2: j['address_line2']?.toString() ?? '',
+        city: j['city']?.toString() ?? '',
+        state: j['state']?.toString() ?? '',
+        pincode: j['pincode']?.toString() ?? '',
         totalAmount: _toDouble(j['total_amount']),
-        createdAt: DateTime.parse(j['created_at'] as String),
-        updatedAt: DateTime.parse(j['updated_at'] as String),
+        createdAt: DateTime.tryParse(j['created_at']?.toString() ?? '') ?? DateTime.now(),
+        updatedAt: DateTime.tryParse(j['updated_at']?.toString() ?? '') ?? DateTime.now(),
         items: (j['items'] as List? ?? [])
-            .map((e) => OrderItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .whereType<Map>()
+            .map((e) => OrderItem.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
         customerPhone: j['customer_phone']?.toString(),
       );
@@ -1494,13 +1329,13 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
-        id: j['id'] as int,
-        productId: j['product_id'] as int,
-        productName: j['product_name'] as String? ?? '',
-        quantity: j['quantity'] as int? ?? 0,
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        productId: (j['product_id'] as num?)?.toInt() ?? 0,
+        productName: j['product_name']?.toString() ?? '',
+        quantity: (j['quantity'] as num?)?.toInt() ?? 0,
         unitPrice: _toDouble(j['unit_price']),
         lineTotal: _toDouble(j['line_total']),
-        imageUrl: j['image_url'] as String?,
+        imageUrl: j['image_url']?.toString(),
       );
 }
 

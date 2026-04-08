@@ -1,61 +1,44 @@
-import 'dart:async';
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
-import 'api.dart';
+import '../../core/api.dart';
+import '../../constants.dart';
+import '../../providers/api_provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-const _statusOptions = [
-  'PENDING',
-  'RECEIVED',
-  'READY',
-  'DELIVERED',
-  'CANCELLED'
-];
-String _statusNice(String s) {
-  switch (s) {
-    case 'PENDING':
-      return 'Pending';
-    case 'RECEIVED':
-      return 'Received';
-    case 'READY':
-      return 'Ready';
-    case 'DELIVERED':
-      return 'Delivered';
-    case 'CANCELLED':
-      return 'Cancelled';
-    default:
-      return s;
-  }
-}
+String _statusNice(String s) => OrderStatus.display(s);
 
 Color _statusColor(BuildContext ctx, String s) {
   final cs = Theme.of(ctx).colorScheme;
   switch (s) {
-    case 'RECEIVED':
+    case OrderStatus.received:
       return cs.primary;
-    case 'READY':
+    case OrderStatus.ready:
       return cs.tertiary;
-    case 'DELIVERED':
+    case OrderStatus.delivered:
       return cs.secondary;
-    case 'CANCELLED':
+    case OrderStatus.cancelled:
       return cs.outline;
     default:
       return cs.primary;
   }
 }
 
-class OrderDetailPage extends StatefulWidget {
-  final Api api;
-  final Order order;
-  const OrderDetailPage({super.key, required this.api, required this.order});
+class OrderDetailPage extends ConsumerStatefulWidget {
+  final Order? order;
+  final int? orderId;
+  const OrderDetailPage({super.key, this.order, this.orderId});
 
   @override
-  State<OrderDetailPage> createState() => _OrderDetailPageState();
+  ConsumerState<OrderDetailPage> createState() => _OrderDetailPageState();
 }
 
-class _OrderDetailPageState extends State<OrderDetailPage> {
-  late Order _order;
+class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
+  Order? _order;
+  bool _loadingOrder = false;
   final _dfMoney = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
   String? _pendingStatus;
   Timer? _refreshTimer;
@@ -65,8 +48,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   @override
   void initState() {
     super.initState();
-    _order = widget.order;
-    _startRefreshTimer();
+    if (widget.order != null) {
+      _order = widget.order;
+      _startRefreshTimer();
+    } else if (widget.orderId != null) {
+      _fetchOrderById(widget.orderId!);
+    }
   }
 
   void _startRefreshTimer() {
@@ -81,12 +68,28 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     super.dispose();
   }
 
+  Future<void> _fetchOrderById(int id) async {
+    setState(() => _loadingOrder = true);
+    try {
+      final order = await ref.read(apiProvider).getOrder(id);
+      if (!mounted) return;
+      setState(() {
+        _order = order;
+        _loadingOrder = false;
+      });
+      _startRefreshTimer();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingOrder = false);
+    }
+  }
+
   Future<void> _refreshOrder() async {
-    if (_pendingStatus != null || !mounted) return;
+    if (_order == null || _pendingStatus != null || !mounted) return;
     // Don't refresh if we just updated something (allow 3s for backend consistency)
     if (DateTime.now().difference(_lastUpdateTime).inSeconds < 3) return;
     try {
-      final updated = await widget.api.getOrder(_order.id);
+      final updated = await ref.read(apiProvider).getOrder(_order!.id);
       if (mounted) {
         setState(() {
           _order = updated;
@@ -101,7 +104,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (_pendingStatus != null) return;
     setState(() => _pendingStatus = status);
     try {
-      final updated = await widget.api.setStatus(_order.id, status);
+      final updated = await ref.read(apiProvider).setStatus(_order!.id, status);
       if (!mounted) return;
       setState(() {
         _order = updated;
@@ -136,11 +139,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _addItem() async {
     final product = await showDialog<ProductLite>(
       context: context,
-      builder: (ctx) => ProductSearchDialog(api: widget.api),
+      builder: (ctx) => const ProductSearchDialog(),
     );
     if (product == null) return;
-    
-    // ignore: use_build_context_synchronously
     if (!mounted) return;
 
     // Ask quantity
@@ -183,7 +184,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
     if (qty == null) return;
     _performUpdate(
-      () => widget.api.addItem(_order.id, product.id, qty),
+      () => ref.read(apiProvider).addItem(_order!.id, product.id, qty),
       optimistic: (current) {
         // Find if item already exists
         final idx = current.items.indexWhere((it) => it.productId == product.id);
@@ -259,10 +260,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       _removeItem(item);
       return;
     }
+    if (newQty > 9999) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quantity cannot exceed 9999')),
+      );
+      return;
+    }
 
     final newQtyVal = newQty;
     _performUpdate(
-      () => widget.api.updateItemQuantity(_order.id, item.id, newQtyVal),
+      () => ref.read(apiProvider).updateItemQuantity(_order!.id, item.id, newQtyVal),
       optimistic: (current) {
         final newItems = current.items.map((it) {
           if (it.id == item.id) {
@@ -325,7 +332,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (confirm != true) return;
 
     _performUpdate(
-      () => widget.api.removeItem(_order.id, item.id),
+      () => ref.read(apiProvider).removeItem(_order!.id, item.id),
       optimistic: (current) {
         final newItems = current.items.where((it) => it.id != item.id).toList();
         double newTotal = 0;
@@ -354,34 +361,90 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _confirmOrder() async {
-     final priceController = TextEditingController(text: _order.totalAmount.toStringAsFixed(2));
-     final confirmed = await showDialog<bool>(
-       context: context,
-       builder: (ctx) => AlertDialog(
-         title: const Text('Confirm Order'),
-         content: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             const Text('Verify contents and set final price.'),
-             const SizedBox(height: 10),
-             TextField(
-               controller: priceController,
-               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-               decoration: const InputDecoration(labelText: 'Total Amount (₹)'),
-             )
+     final priceController = TextEditingController(text: _order!.totalAmount.toStringAsFixed(2));
+     try {
+       final confirmed = await showDialog<bool>(
+         context: context,
+         builder: (ctx) => AlertDialog(
+           title: const Text('Confirm Order'),
+           content: Column(
+             mainAxisSize: MainAxisSize.min,
+             children: [
+               const Text('Verify contents and set final price.'),
+               const SizedBox(height: 10),
+               TextField(
+                 controller: priceController,
+                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                 decoration: const InputDecoration(labelText: 'Total Amount (₹)'),
+               )
+             ],
+           ),
+           actions: [
+             TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('Cancel')),
+             FilledButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Confirm')),
            ],
-         ),
-         actions: [
-           TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('Cancel')),
-           FilledButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Confirm')),
-         ],
-       )
-     );
+         )
+       );
 
-     if (confirmed == true) {
-        final amount = double.tryParse(priceController.text) ?? _order.totalAmount;
-        _performUpdate(() => widget.api.confirmOrder(_order.id, amount));
+       if (confirmed == true) {
+          final amount = double.tryParse(priceController.text);
+          if (amount == null || amount < 0) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Enter a valid amount')),
+              );
+            }
+          } else {
+            _performUpdate(() => ref.read(apiProvider).confirmOrder(_order!.id, amount));
+          }
+       }
+     } finally {
+       priceController.dispose();
      }
+  }
+
+  Future<void> _editAmount() async {
+    final priceController = TextEditingController(
+        text: _order!.totalAmount.toStringAsFixed(2));
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Edit Amount'),
+          content: TextField(
+            controller: priceController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration:
+                const InputDecoration(labelText: 'Total Amount (₹)'),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Save')),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        final amount = double.tryParse(priceController.text);
+        if (amount == null || amount < 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Enter a valid amount')),
+            );
+          }
+        } else {
+          _performUpdate(
+              () => ref.read(apiProvider).updateAmount(_order!.id, amount));
+        }
+      }
+    } finally {
+      priceController.dispose();
+    }
   }
 
   Future<void> _performUpdate(
@@ -393,7 +456,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
     Order? original;
     if (optimistic != null) {
-      setState(() => _order = optimistic(_order));
+      setState(() => _order = optimistic(_order!));
       if (onInitialStateApplied != null) onInitialStateApplied();
     }
 
@@ -429,13 +492,13 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _onSelectFromDropdown(String? v) async {
-    if (v == null || v == _order.status) return;
+    if (v == null || v == _order!.status) return;
     await _updateStatus(v);
   }
 
-  Future<void> _onReceived() => _updateStatus('RECEIVED');
-  Future<void> _onReady() => _updateStatus('READY');
-  Future<void> _onDelivered() => _updateStatus('DELIVERED');
+  Future<void> _onReceived() => _updateStatus(OrderStatus.received);
+  Future<void> _onReady() => _updateStatus(OrderStatus.ready);
+  Future<void> _onDelivered() => _updateStatus(OrderStatus.delivered);
 
   Widget _buttonChild(String label, bool isLoading, Color? progressColor) {
     if (!isLoading) return Text(label);
@@ -452,12 +515,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingOrder || _order == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Order')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final created =
-        DateFormat('yyyy-MM-dd HH:mm').format(_order.createdAt.toLocal());
-    final chipColor = _statusColor(context, _order.status);
-    final canEdit = (_order.status == 'PENDING' || _order.status == 'CONFIRMED'); // Allow edit in confirmed too?
-    // Let's stick to PENDING mainly, but user asked to modify orders. 
-    // Backend says PENDING. 
+        DateFormat('yyyy-MM-dd HH:mm').format(_order!.createdAt.toLocal());
+    final chipColor = _statusColor(context, _order!.status);
+    final canEdit = ![OrderStatus.delivered, OrderStatus.cancelled].contains(_order!.status);
 
     return PopScope(
       canPop: false,
@@ -467,11 +534,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Order #${_order.id}'),
+          title: Text('Order #${_order!.id}'),
           leading:
               BackButton(onPressed: () => Navigator.of(context).pop(_order)),
           actions: [
-            if (_order.status == 'PENDING')
+            if (canEdit)
                IconButton(onPressed: _addItem, icon: const Icon(Icons.add_shopping_cart)),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -484,7 +551,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   child: Text(
-                    _statusNice(_order.status),
+                    _statusNice(_order!.status),
                     style: TextStyle(
                       color: chipColor,
                       fontWeight: FontWeight.w600,
@@ -509,17 +576,29 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ListTile(
                       leading:
                           const Icon(Icons.location_on, color: Colors.blueGrey),
-                      title: Text(_order.shippingName),
+                      title: Text(_order!.shippingName),
                       subtitle: Text(
-                        '${_order.addressLine1}\n'
-                        '${_order.addressLine2.isNotEmpty ? "${_order.addressLine2}\n" : ""}'
-                        '${_order.city}, ${_order.state} ${_order.pincode}\n'
+                        '${_order!.addressLine1}\n'
+                        '${_order!.addressLine2.isNotEmpty ? "${_order!.addressLine2}\n" : ""}'
+                        '${_order!.city}, ${_order!.state} ${_order!.pincode}\n'
                         'Placed: $created',
                       ),
-                      trailing: Text(
-                        _dfMoney.format(_order.totalAmount),
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _dfMoney.format(_order!.totalAmount),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700),
+                          ),
+                          if ([OrderStatus.pending, OrderStatus.confirmed, OrderStatus.received]
+                              .contains(_order!.status))
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18),
+                              tooltip: 'Edit Amount',
+                              onPressed: _editAmount,
+                            ),
+                        ],
                       ),
                     ),
                     const Divider(height: 1),
@@ -529,28 +608,58 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         children: [
                           const Icon(Icons.phone_outlined, size: 18),
                           const SizedBox(width: 8),
-                          Text('Shipping: ${_order.shippingPhone}'),
+                          Text.rich(
+                            TextSpan(
+                              text: 'Shipping: ',
+                              children: [
+                                TextSpan(
+                                  text: _order!.shippingPhone,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.indigo,
+                                    fontSize: 18,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.call, color: Colors.green),
-                        onPressed: () => _call(_order.shippingPhone),
+                        onPressed: () => _call(_order!.shippingPhone),
                       ),
                     ),
-                    if (_order.customerPhone != null &&
-                        _order.customerPhone != _order.shippingPhone)
+                    if (_order!.customerPhone != null &&
+                        _order!.customerPhone != _order!.shippingPhone)
                       ListTile(
                         visualDensity: VisualDensity.compact,
                         title: Row(
                           children: [
                             const Icon(Icons.account_circle_outlined, size: 18),
                             const SizedBox(width: 8),
-                            Text('Account: ${_order.customerPhone}'),
+                            Text.rich(
+                              TextSpan(
+                                text: 'Account: ',
+                                children: [
+                                  TextSpan(
+                                    text: _order!.customerPhone,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.indigo,
+                                      fontSize: 18,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.call, color: Colors.green),
-                          onPressed: () => _call(_order.customerPhone!),
+                          onPressed: () => _call(_order!.customerPhone!),
                         ),
                       ),
                   ],
@@ -564,10 +673,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 controller: _scrollCtrl,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                itemCount: _order.items.length,
+                itemCount: _order!.items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, i) {
-                  final it = _order.items[i];
+                  final it = _order!.items[i];
                   return Card(
                     key: ValueKey(it.id == -1 ? 'temp-${it.productId}' : it.id),
                     elevation: 1,
@@ -631,7 +740,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                                 ),
                               ),
                               // Actions
-                              if (_order.status == 'PENDING')
+                              if (canEdit)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -680,15 +789,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   actions.add(Expanded(child: button));
                 }
 
-                switch (_order.status) {
-                  case 'PENDING':
+                // Primary next-step action
+                switch (_order!.status) {
+                  case OrderStatus.pending:
                     addButton(
                       FilledButton(
                         onPressed: _pendingStatus == null ? _confirmOrder : null,
-                         style: FilledButton.styleFrom(
-                           backgroundColor: Colors.green.shade700,
-                           foregroundColor: Colors.white,
-                         ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                        ),
                         child: _buttonChild(
                           'Confirm Order',
                           _pendingStatus == 'Updating...',
@@ -696,49 +806,42 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         ),
                       ),
                     );
-                     // Allow cancelling too?
-                     addButton(
-                         OutlinedButton(
-                             onPressed: () => _performUpdate(() => widget.api.cancel(_order.id)),
-                             child: const Text('Cancel')
-                         )
-                     );
                     break;
-                    
-                  case 'CONFIRMED': // Waiting for customer payment
+
+                  case OrderStatus.confirmed:
                     addButton(
                       FilledButton(
                         onPressed:
                             _pendingStatus == null ? _onReceived : null,
                         child: _buttonChild(
                           'Mark Received (Paid)',
-                          _pendingStatus == 'RECEIVED',
+                          _pendingStatus == OrderStatus.received,
                           cs.onPrimary,
                         ),
                       ),
                     );
                     break;
-                    
-                  case 'RECEIVED':
+
+                  case OrderStatus.received:
                     addButton(
                       FilledButton.tonal(
                         onPressed: _pendingStatus == null ? _onReady : null,
                         child: _buttonChild(
                           'Mark Ready',
-                          _pendingStatus == 'READY',
+                          _pendingStatus == OrderStatus.ready,
                           cs.onSecondaryContainer,
                         ),
                       ),
                     );
                     break;
-                  case 'READY':
+                  case OrderStatus.ready:
                     addButton(
                       OutlinedButton(
                         onPressed:
                             _pendingStatus == null ? _onDelivered : null,
                         child: _buttonChild(
                           'Mark Delivered',
-                          _pendingStatus == 'DELIVERED',
+                          _pendingStatus == OrderStatus.delivered,
                           cs.primary,
                         ),
                       ),
@@ -746,9 +849,48 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     break;
                 }
 
-                if (actions.isEmpty) {
-                  return const SizedBox.shrink();
+                // Cancel button (available for all non-delivered/cancelled)
+                if (![OrderStatus.delivered, OrderStatus.cancelled]
+                    .contains(_order!.status)) {
+                  addButton(
+                    OutlinedButton(
+                      onPressed: _pendingStatus == null
+                          ? () => _performUpdate(
+                              () => ref.read(apiProvider).cancel(_order!.id))
+                          : null,
+                      child: const Text('Cancel'),
+                    ),
+                  );
                 }
+
+                // Status override dropdown — always visible
+                addButton(
+                  DropdownButtonHideUnderline(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: cs.outline),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _order!.status,
+                        isExpanded: true,
+                        isDense: true,
+                        icon: const Icon(Icons.swap_vert, size: 18),
+                        items: OrderStatus.all
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(OrderStatus.display(s),
+                                      style: const TextStyle(fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: _pendingStatus == null
+                            ? _onSelectFromDropdown
+                            : null,
+                      ),
+                    ),
+                  ),
+                );
 
                 return SafeArea(
                   child: Padding(
@@ -765,15 +907,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 }
 
-class ProductSearchDialog extends StatefulWidget {
-  final Api api;
-  const ProductSearchDialog({super.key, required this.api});
+class ProductSearchDialog extends ConsumerStatefulWidget {
+  const ProductSearchDialog({super.key});
 
   @override
-  State<ProductSearchDialog> createState() => _ProductSearchDialogState();
+  ConsumerState<ProductSearchDialog> createState() => _ProductSearchDialogState();
 }
 
-class _ProductSearchDialogState extends State<ProductSearchDialog> {
+class _ProductSearchDialogState extends ConsumerState<ProductSearchDialog> {
   List<ProductLite> _results = [];
   bool _loading = false;
   final _searchCtrl = TextEditingController();
@@ -782,15 +923,19 @@ class _ProductSearchDialogState extends State<ProductSearchDialog> {
     if (query.isEmpty) return;
     setState(() => _loading = true);
     try {
-      final res = await widget.api.searchProducts(query);
+      final res = await ref.read(apiProvider).searchProducts(query);
       if (!mounted) return;
       setState(() {
         _results = res;
         _loading = false;
       });
     } catch (e) {
+      debugPrint('Product search error: $e');
       if (!mounted) return;
       setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Search failed: $e')),
+      );
     }
   }
 

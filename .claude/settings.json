@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e/FPS/FPS/fps_admin_full_flutter_web\" 2>/dev/**)",
+      "Read(//mnt/e/FPS/FPS/**)",
+      "Bash(grep -n \"hardcoded\\\\|TODO\\\\|FIXME\\\\|password\\\\|secret\\\\|key\\\\|token\" lib/*.dart lib/**/*.dart)",
+      "Bash(grep -c \"^//\")",
+      "Bash(python -c ':*)",
+      "Bash(powershell -Command \"Get-Content lib/services/push_service.dart -First 1 | Format-Hex\")",
+      "Bash(powershell -Command \"\\(Get-Content lib/services/push_service.dart -Raw -Encoding UTF8\\) -replace '\\\\u2018|\\\\u2019', \\\\\"'\\\\\" | Set-Content lib/services/push_service.dart -Encoding UTF8 -NoNewline\")",
+      "Bash(flutter analyze:*)",
+      "Bash(dart analyze:*)"
+    ]
+  }
+}

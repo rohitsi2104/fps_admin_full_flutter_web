@@ -1,7 +1,7 @@
 // lib/stock/bulk_update_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../api.dart';
+import '../../core/api.dart';
 
 class BulkUpdatePage extends StatefulWidget {
   final Api api;

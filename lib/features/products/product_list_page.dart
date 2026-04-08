@@ -1,23 +1,26 @@
 import 'dart:async';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'api.dart';
-import 'stock/stock_page.dart';
+import '../../core/api.dart';
+import '../../providers/api_provider.dart';
+import '../stock/stock_page.dart';
 
-class ProductListPage extends StatefulWidget {
-  final Api api;
-  const ProductListPage({super.key, required this.api});
+class ProductListPage extends ConsumerStatefulWidget {
+  const ProductListPage({super.key});
 
   @override
-  State<ProductListPage> createState() => _ProductListPageState();
+  ConsumerState<ProductListPage> createState() => _ProductListPageState();
 }
 
-class _ProductListPageState extends State<ProductListPage> {
+class _ProductListPageState extends ConsumerState<ProductListPage>
+    with WidgetsBindingObserver {
   final _money = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
   final _searchCtrl = TextEditingController();
-  
+
   List<ProductLite> _products = [];
   bool _loading = true;
   String _query = '';
@@ -27,15 +30,32 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchProducts();
+    _startAutoRefresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoRefresh();
+    } else {
+      _autoRefreshTimer?.cancel();
+      _autoRefreshTimer = null;
+    }
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted || _query.isNotEmpty) return; // Only auto-refresh if not searching
+      if (!mounted || _query.isNotEmpty) return;
       _fetchProducts();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchCtrl.dispose();
     _debounce?.cancel();
     _autoRefreshTimer?.cancel();
@@ -45,7 +65,7 @@ class _ProductListPageState extends State<ProductListPage> {
   Future<void> _fetchProducts() async {
     setState(() => _loading = true);
     try {
-      final results = await widget.api.searchProducts(_query, limit: 100);
+      final results = await ref.read(apiProvider).searchProducts(_query, limit: 100);
       if (mounted) {
         setState(() {
           _products = results;
@@ -167,7 +187,7 @@ class _ProductListPageState extends State<ProductListPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _QuickEditSheet(api: widget.api, product: p, onUpdated: _fetchProducts),
+      builder: (context) => _QuickEditSheet(product: p, onUpdated: _fetchProducts),
     );
   }
 }
@@ -310,17 +330,16 @@ class _Badge extends StatelessWidget {
 }
 
 
-class _QuickEditSheet extends StatefulWidget {
-  final Api api;
+class _QuickEditSheet extends ConsumerStatefulWidget {
   final ProductLite product;
   final VoidCallback onUpdated;
-  const _QuickEditSheet({required this.api, required this.product, required this.onUpdated});
+  const _QuickEditSheet({required this.product, required this.onUpdated});
 
   @override
-  State<_QuickEditSheet> createState() => _QuickEditSheetState();
+  ConsumerState<_QuickEditSheet> createState() => _QuickEditSheetState();
 }
 
-class _QuickEditSheetState extends State<_QuickEditSheet> {
+class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
   late ProductLite _product;
   late final TextEditingController _stockCtrl;
   late final TextEditingController _priceCtrl;
@@ -371,7 +390,7 @@ class _QuickEditSheetState extends State<_QuickEditSheet> {
     
     setState(() => _busy = true);
     try {
-      final updated = await widget.api.updateProductFull(
+      final updated = await ref.read(apiProvider).updateProductFull(
         productId: _product.id,
         stock: s,
         price: p,
