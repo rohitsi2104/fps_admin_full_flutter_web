@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +17,7 @@ class ProductListPage extends ConsumerStatefulWidget {
   ConsumerState<ProductListPage> createState() => _ProductListPageState();
 }
 
-class _ProductListPageState extends ConsumerState<ProductListPage>
-    with WidgetsBindingObserver {
+class _ProductListPageState extends ConsumerState<ProductListPage> {
   final _money = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
   final _searchCtrl = TextEditingController();
 
@@ -25,40 +25,17 @@ class _ProductListPageState extends ConsumerState<ProductListPage>
   bool _loading = true;
   String _query = '';
   Timer? _debounce;
-  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _fetchProducts();
-    _startAutoRefresh();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _startAutoRefresh();
-    } else {
-      _autoRefreshTimer?.cancel();
-      _autoRefreshTimer = null;
-    }
-  }
-
-  void _startAutoRefresh() {
-    _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted || _query.isNotEmpty) return;
-      _fetchProducts();
-    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _searchCtrl.dispose();
     _debounce?.cancel();
-    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -238,21 +215,20 @@ class _ProductCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (product.imageUrl != null)
-                    Image.network(
-                      product.imageUrl!,
+                  if (product.displayImageUrl != null)
+                    CachedNetworkImage(
+                      imageUrl: product.displayImageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      memCacheWidth: 400,
+                      maxWidthDiskCache: 400,
+                      errorWidget: (_, __, ___) => Container(
                         color: cs.surfaceVariant,
                         child: const Icon(Icons.image_not_supported_outlined),
                       ),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
-                          color: cs.surfaceVariant,
-                          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                        );
-                      },
+                      placeholder: (context, _) => Container(
+                        color: cs.surfaceVariant,
+                        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
                     )
                   else
                     Container(
@@ -461,7 +437,11 @@ class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
                     if (_newImageBytes != null)
                       Image.memory(_newImageBytes!, fit: BoxFit.contain)
                     else if (_product.imageUrl != null)
-                      Image.network(_product.imageUrl!, fit: BoxFit.contain)
+                      CachedNetworkImage(
+                        imageUrl: _product.imageUrl!,
+                        fit: BoxFit.contain,
+                        memCacheWidth: 800,
+                      )
                     else
                       const Column(
                         mainAxisAlignment: MainAxisAlignment.center,

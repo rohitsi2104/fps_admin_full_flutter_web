@@ -809,6 +809,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1001,7 +1002,11 @@ class _StockPageState extends ConsumerState<StockPage> {
                           if (newImageBytes != null)
                             Image.memory(newImageBytes!, fit: BoxFit.contain)
                           else if (chosen?.imageUrl != null)
-                            Image.network(chosen!.imageUrl!, fit: BoxFit.contain)
+                            CachedNetworkImage(
+                              imageUrl: chosen!.imageUrl!,
+                              fit: BoxFit.contain,
+                              memCacheWidth: 600,
+                            )
                           else
                             const Column(
                               mainAxisAlignment: MainAxisAlignment.center,

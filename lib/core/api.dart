@@ -1317,6 +1317,7 @@ class OrderItem {
   final double unitPrice;
   final double lineTotal;
   final String? imageUrl;
+  final String? thumbnailUrl;
 
   OrderItem({
     required this.id,
@@ -1326,7 +1327,11 @@ class OrderItem {
     required this.unitPrice,
     required this.lineTotal,
     required this.imageUrl,
+    this.thumbnailUrl,
   });
+
+  /// Prefer thumbnail for list/grid display; fall back to full image.
+  String? get displayImageUrl => thumbnailUrl ?? imageUrl;
 
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
         id: (j['id'] as num?)?.toInt() ?? 0,
@@ -1336,6 +1341,7 @@ class OrderItem {
         unitPrice: _toDouble(j['unit_price']),
         lineTotal: _toDouble(j['line_total']),
         imageUrl: j['image_url']?.toString(),
+        thumbnailUrl: j['thumbnail_url']?.toString(),
       );
 }
 
@@ -1459,6 +1465,7 @@ class ProductLite {
   final int stock;
   final double price;
   final String? imageUrl;
+  final String? thumbnailUrl;
 
   ProductLite({
     required this.id,
@@ -1466,7 +1473,11 @@ class ProductLite {
     required this.stock,
     required this.price,
     this.imageUrl,
+    this.thumbnailUrl,
   });
+
+  /// Prefer thumbnail for list/grid display; fall back to full image.
+  String? get displayImageUrl => thumbnailUrl ?? imageUrl;
 
   factory ProductLite.fromJson(Map<String, dynamic> j) => ProductLite(
         id: (j['id'] as num).toInt(),
@@ -1474,5 +1485,6 @@ class ProductLite {
         stock: (j['stock'] as num?)?.toInt() ?? 0,
         price: _toDouble(j['price'] ?? j['mrp'] ?? j['unit_price']),
         imageUrl: (j['image_url'] ?? j['image'])?.toString(),
+        thumbnailUrl: j['thumbnail_url']?.toString(),
       );
 }

@@ -32,7 +32,6 @@ class _PosScreenState extends ConsumerState<PosScreen>
   final List<CartLine> _cart       = <CartLine>[];
   List<Product>        _suggestions = <Product>[];
   Timer? _debounce;
-  Timer? _autoRefreshTimer;
 
   bool _warming    = true;
   bool _submitting = false;
@@ -45,10 +44,6 @@ class _PosScreenState extends ConsumerState<PosScreen>
   void initState() {
     super.initState();
     _warm();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      if (!mounted || _submitting) return;
-      _warm();
-    });
     _searchCtrl.addListener(() => setState(() {})); // trigger suffix icon rebuild
   }
 
@@ -64,7 +59,6 @@ class _PosScreenState extends ConsumerState<PosScreen>
   @override
   void dispose() {
     _debounce?.cancel();
-    _autoRefreshTimer?.cancel();
     _searchCtrl.dispose();
     _custNameCtrl.dispose();
     _custPhoneCtrl.dispose();

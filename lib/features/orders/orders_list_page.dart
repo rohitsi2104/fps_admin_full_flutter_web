@@ -111,44 +111,50 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
         children: [
           // Date filter bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-            child: Row(
-              children: [
-                _QuickDateChip(
-                  label: 'Today',
-                  selected: isToday,
-                  onTap: () => _setQuickDate('today'),
-                ),
-                const SizedBox(width: 6),
-                _QuickDateChip(
-                  label: 'Yesterday',
-                  selected: false,
-                  onTap: () => _setQuickDate('yesterday'),
-                ),
-                const SizedBox(width: 6),
-                _QuickDateChip(
-                  label: '7 Days',
-                  selected: false,
-                  onTap: () => _setQuickDate('week'),
-                ),
-                const SizedBox(width: 6),
-                _QuickDateChip(
-                  label: '30 Days',
-                  selected: false,
-                  onTap: () => _setQuickDate('month'),
-                ),
-                const Spacer(),
-                ActionChip(
-                  avatar: const Icon(Icons.date_range, size: 18),
-                  label: Text(
-                    dateRange.start == dateRange.end
-                        ? dfShort.format(dateRange.start)
-                        : '${dfShort.format(dateRange.start)} – ${dfShort.format(dateRange.end)}',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _QuickDateChip(
+                    label: 'Today',
+                    selected: isToday,
+                    onTap: () => _setQuickDate('today'),
                   ),
-                  onPressed: _pickDateRange,
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  _QuickDateChip(
+                    label: 'Yesterday',
+                    selected: false,
+                    onTap: () => _setQuickDate('yesterday'),
+                  ),
+                  const SizedBox(width: 6),
+                  _QuickDateChip(
+                    label: '7 Days',
+                    selected: false,
+                    onTap: () => _setQuickDate('week'),
+                  ),
+                  const SizedBox(width: 6),
+                  _QuickDateChip(
+                    label: '30 Days',
+                    selected: false,
+                    onTap: () => _setQuickDate('month'),
+                  ),
+                  const SizedBox(width: 10),
+                  ActionChip(
+                    avatar: const Icon(Icons.date_range, size: 16),
+                    label: Text(
+                      dateRange.start == dateRange.end
+                          ? dfShort.format(dateRange.start)
+                          : '${dfShort.format(dateRange.start)} – ${dfShort.format(dateRange.end)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _pickDateRange,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -167,39 +173,56 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                 return RefreshIndicator(
                   onRefresh: () => ref.read(ordersProvider.notifier).refresh(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, i) {
                       final o = filtered[i];
                       final cs = Theme.of(context).colorScheme;
                       final chipColor = _statusChipColor(context, o.status);
                       return Card(
-                        elevation: 1,
+                        elevation: 2,
                         child: ListTile(
-                          title: Text(
-                              'Order #${o.id} • ₹${o.totalAmount.toStringAsFixed(2)}'),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 14),
+                          title: Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              'Order #${o.id} • ₹${o.totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                           subtitle: Text(
-                              '${o.shippingName} • ${_statusChipText(o.status)}'),
+                            '${o.shippingName} • ${_statusChipText(o.status)}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                           trailing: Wrap(
                             crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 10,
+                            spacing: 12,
                             children: [
-                              Text(df.format(o.createdAt.toLocal()),
-                                  style:
-                                      TextStyle(color: cs.onSurfaceVariant)),
+                              Text(
+                                df.format(o.createdAt.toLocal()),
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 15,
+                                ),
+                              ),
                               Container(
                                 decoration: BoxDecoration(
                                   color: chipColor.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
+                                    horizontal: 12, vertical: 8),
                                 child: Text(
                                   _statusChipText(o.status),
                                   style: TextStyle(
                                     color: chipColor,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
                                   ),
                                 ),
                               ),
@@ -255,6 +278,8 @@ String _statusChipText(String s) => OrderStatus.display(s);
 
 Color _statusChipColor(BuildContext ctx, String s) {
   switch (s) {
+    case OrderStatus.confirmed:
+      return const Color(0xFFB58105);
     case OrderStatus.received:
       return const Color(0xFF0B8A00);
     case OrderStatus.ready:

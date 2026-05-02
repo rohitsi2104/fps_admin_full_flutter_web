@@ -55,8 +55,6 @@ void main() async {
 
   // ── Foreground notification + auto-refresh ───────────────────────────────
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    // Show a heads-up notification while the app is in the foreground.
-    // flutter_local_notifications only works on Android / iOS, not web.
     if (!kIsWeb) {
       final notification = message.notification;
       if (notification != null) {
@@ -77,9 +75,19 @@ void main() async {
         );
       }
     }
-    // Signal the orders provider to reload immediately.
     PushService.triggerRefresh();
   });
+
+  // ── Background → foreground: user tapped the notification ──────────────
+  FirebaseMessaging.onMessageOpenedApp.listen((_) {
+    PushService.triggerRefresh();
+  });
+
+  // ── App was terminated, opened by tapping notification ─────────────────
+  final initialMsg = await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMsg != null) {
+    PushService.triggerRefresh();
+  }
   // ────────────────────────────────────────────────────────────────────────
 
   runApp(

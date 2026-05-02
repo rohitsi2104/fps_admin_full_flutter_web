@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,8 @@ String _statusNice(String s) => OrderStatus.display(s);
 Color _statusColor(BuildContext ctx, String s) {
   final cs = Theme.of(ctx).colorScheme;
   switch (s) {
+    case OrderStatus.confirmed:
+      return const Color(0xFFB58105);
     case OrderStatus.received:
       return cs.primary;
     case OrderStatus.ready:
@@ -199,19 +202,21 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             unitPrice: existing.unitPrice,
             lineTotal: (existing.quantity + qty) * existing.unitPrice,
             imageUrl: existing.imageUrl,
+            thumbnailUrl: existing.thumbnailUrl,
           );
           newItems = List<OrderItem>.from(current.items);
           newItems[idx] = updated;
         } else {
           // New item (we don't have its ID yet, use a temp one)
           final temp = OrderItem(
-            id: -1, 
+            id: -1,
             productId: product.id,
             productName: product.name,
             quantity: qty,
             unitPrice: product.price,
             lineTotal: qty * product.price,
             imageUrl: product.imageUrl,
+            thumbnailUrl: product.thumbnailUrl,
           );
           newItems = List<OrderItem>.from(current.items)..add(temp);
         }
@@ -282,6 +287,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               unitPrice: it.unitPrice,
               lineTotal: lineTotal,
               imageUrl: it.imageUrl,
+              thumbnailUrl: it.thumbnailUrl,
             );
           }
           return it;
@@ -381,7 +387,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
            ),
            actions: [
              TextButton(onPressed: ()=> Navigator.pop(ctx, false), child: const Text('Cancel')),
-             FilledButton(onPressed: ()=> Navigator.pop(ctx, true), child: const Text('Confirm')),
+             FilledButton(
+               onPressed: ()=> Navigator.pop(ctx, true),
+               style: FilledButton.styleFrom(
+                 backgroundColor: const Color(0xFFFFC107),
+                 foregroundColor: Colors.black,
+                 textStyle: const TextStyle(fontWeight: FontWeight.w700),
+               ),
+               child: const Text('Confirm'),
+             ),
            ],
          )
        );
@@ -541,27 +555,38 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             if (canEdit)
                IconButton(onPressed: _addItem, icon: const Icon(Icons.add_shopping_cart)),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              child: DecoratedBox(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   color: chipColor.withValues(alpha: 0.12),
+                  border: Border.all(color: chipColor.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Text(
-                    _statusNice(_order!.status),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _order!.status,
+                    isDense: true,
+                    icon: Icon(Icons.swap_vert, size: 16, color: chipColor),
                     style: TextStyle(
                       color: chipColor,
                       fontWeight: FontWeight.w600,
+                      fontSize: 13,
                     ),
+                    items: OrderStatus.all
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(OrderStatus.display(s)),
+                            ))
+                        .toList(),
+                    onChanged: _pendingStatus == null
+                        ? _onSelectFromDropdown
+                        : null,
                   ),
                 ),
               ),
             ),
-             // ... status dropdown (only for advanced states if needed, but Confirm logic replaces mostly)
-             const SizedBox(width: 8),
+            const SizedBox(width: 8),
           ],
         ),
         body: Column(
@@ -697,14 +722,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           Row(
                             children: [
                               // Image/Icon
-                              (it.imageUrl != null)
+                              (it.displayImageUrl != null)
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(6),
-                                      child: Image.network(
-                                        it.imageUrl!,
+                                      child: CachedNetworkImage(
+                                        imageUrl: it.displayImageUrl!,
                                         width: 48,
                                         height: 48,
                                         fit: BoxFit.cover,
+                                        memCacheWidth: 96,
+                                        maxWidthDiskCache: 200,
+                                        errorWidget: (_, __, ___) => Container(
+                                          width: 48,
+                                          height: 48,
+                                          color: Colors.grey.shade100,
+                                          child: const Icon(Icons.image_not_supported_outlined, size: 20),
+                                        ),
                                       ),
                                     )
                                   : Container(
@@ -796,13 +829,18 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                       FilledButton(
                         onPressed: _pendingStatus == null ? _confirmOrder : null,
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          foregroundColor: Colors.white,
+                          backgroundColor: const Color(0xFFFFC107),
+                          foregroundColor: Colors.black,
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         child: _buttonChild(
                           'Confirm Order',
                           _pendingStatus == 'Updating...',
-                          Colors.white,
+                          Colors.black,
                         ),
                       ),
                     );
@@ -863,34 +901,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                   );
                 }
 
-                // Status override dropdown — always visible
-                addButton(
-                  DropdownButtonHideUnderline(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: cs.outline),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _order!.status,
-                        isExpanded: true,
-                        isDense: true,
-                        icon: const Icon(Icons.swap_vert, size: 18),
-                        items: OrderStatus.all
-                            .map((s) => DropdownMenuItem(
-                                  value: s,
-                                  child: Text(OrderStatus.display(s),
-                                      style: const TextStyle(fontSize: 13)),
-                                ))
-                            .toList(),
-                        onChanged: _pendingStatus == null
-                            ? _onSelectFromDropdown
-                            : null,
-                      ),
-                    ),
-                  ),
-                );
 
                 return SafeArea(
                   child: Padding(
