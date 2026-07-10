@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/api.dart';
+import '../../shared/app_ui.dart';
 
 class BulkUpdatePage extends StatefulWidget {
   final Api api;
@@ -342,9 +343,9 @@ class _ProductSearchSheetState extends State<_ProductSearchSheet> {
                   itemBuilder: (_, i) {
                     final p = _results[i];
                     return ListTile(
-                      title: Text(p.name),
+                      title: AppText(p.name),
                       subtitle:
-                          Text('ID ${p.id} • Stock ${p.stock} • ₹${p.price}'),
+                          AppText('ID ${p.id} • Stock ${p.stock} • ₹${p.price}'),
                       onTap: () => Navigator.pop(context, p),
                     );
                   },

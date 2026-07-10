@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/api.dart';
 import '../../providers/api_provider.dart';
+import '../../shared/app_ui.dart';
 import '../stock/stock_page.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
@@ -259,19 +260,25 @@ class _ProductCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    money.format(product.price),
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                  Expanded(
+                    child: AppText(
+                      money.format(product.price),
+                      style: TextStyle(
+                        color: cs.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                  Text(
-                    'Qty: ${product.stock}',
-                    style: TextStyle(
-                      color: isOutOfStock ? Colors.red : cs.onSurfaceVariant,
-                      fontSize: 12,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: AppText(
+                      'Qty: ${product.stock}',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: isOutOfStock ? Colors.red : cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -407,7 +414,7 @@ class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: AppText(
                     _product.name,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -463,7 +470,7 @@ class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
             if (_newImageName != null)
                Padding(
                  padding: const EdgeInsets.only(top: 8.0),
-                 child: Text('Selected: $_newImageName', style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                 child: AppText('Selected: $_newImageName', style: const TextStyle(fontSize: 12, color: Colors.blue)),
                ),
       
             const SizedBox(height: 24),

@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import '../../core/api.dart';
 import '../../constants.dart';
 import '../../providers/api_provider.dart';
+import '../../shared/app_ui.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 String _statusNice(String s) => OrderStatus.display(s);
@@ -154,7 +155,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       builder: (ctx) {
         int q = 1;
         return AlertDialog(
-          title: Text('Add ${product.name}'),
+          title: AppText.multiline('Add ${product.name}', maxLines: 2),
           content: StatefulBuilder(
             builder: (context, setInner) => Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -324,7 +325,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Item?'),
-        content: Text('Remove ${item.productName} from order?'),
+        content: AppText.multiline('Remove ${item.productName} from order?', maxLines: 3),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -548,7 +549,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Order #${_order!.id}'),
+          title: AppText('Order #${_order!.id}'),
           leading:
               BackButton(onPressed: () => Navigator.of(context).pop(_order)),
           actions: [
@@ -601,20 +602,32 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     ListTile(
                       leading:
                           const Icon(Icons.location_on, color: Colors.blueGrey),
-                      title: Text(_order!.shippingName),
-                      subtitle: Text(
+                      title: AppText(_order!.shippingName),
+                      subtitle: AppText.multiline(
                         '${_order!.addressLine1}\n'
                         '${_order!.addressLine2.isNotEmpty ? "${_order!.addressLine2}\n" : ""}'
                         '${_order!.city}, ${_order!.state} ${_order!.pincode}\n'
                         'Placed: $created',
+                        maxLines: 5,
                       ),
-                      trailing: Row(
+                      // Bound the trailing width (ListTile.trailing is measured
+                      // with unbounded width, so Flexible alone won't help) and
+                      // let the amount shrink-to-fit so it stays fully readable.
+                      trailing: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 150),
+                        child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            _dfMoney.format(_order!.totalAmount),
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w700),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: AppText(
+                                _dfMoney.format(_order!.totalAmount),
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.w700),
+                              ),
+                            ),
                           ),
                           if ([OrderStatus.pending, OrderStatus.confirmed, OrderStatus.received]
                               .contains(_order!.status))
@@ -625,6 +638,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                             ),
                         ],
                       ),
+                      ),
                     ),
                     const Divider(height: 1),
                     ListTile(
@@ -633,20 +647,24 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                         children: [
                           const Icon(Icons.phone_outlined, size: 18),
                           const SizedBox(width: 8),
-                          Text.rich(
-                            TextSpan(
-                              text: 'Shipping: ',
-                              children: [
-                                TextSpan(
-                                  text: _order!.shippingPhone,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.indigo,
-                                    fontSize: 18,
-                                    letterSpacing: 0.5,
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Shipping: ',
+                                children: [
+                                  TextSpan(
+                                    text: _order!.shippingPhone,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.indigo,
+                                      fontSize: 18,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -664,20 +682,24 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           children: [
                             const Icon(Icons.account_circle_outlined, size: 18),
                             const SizedBox(width: 8),
-                            Text.rich(
-                              TextSpan(
-                                text: 'Account: ',
-                                children: [
-                                  TextSpan(
-                                    text: _order!.customerPhone,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.indigo,
-                                      fontSize: 18,
-                                      letterSpacing: 0.5,
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  text: 'Account: ',
+                                  children: [
+                                    TextSpan(
+                                      text: _order!.customerPhone,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.indigo,
+                                        fontSize: 18,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -711,8 +733,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                       // Header: Product Name
-                          Text(
+                          AppText.multiline(
                             it.productName,
+                            maxLines: 2,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -755,14 +778,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    AppText(
                                       'Qty: ${it.quantity}  •  ${_dfMoney.format(it.unitPrice)} ea',
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 13,
                                       ),
                                     ),
-                                    Text(
+                                    AppText(
                                       'Subtotal: ${_dfMoney.format(it.lineTotal)}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
@@ -985,8 +1008,8 @@ class _ProductSearchDialogState extends ConsumerState<ProductSearchDialog> {
                         itemBuilder: (context, index) {
                           final p = _results[index];
                           return ListTile(
-                            title: Text(p.name),
-                            subtitle: Text('Stock: ${p.stock} • ₹${p.price}'),
+                            title: AppText(p.name),
+                            subtitle: AppText('Stock: ${p.stock} • ₹${p.price}'),
                             onTap: () => Navigator.pop(context, p),
                           );
                         },

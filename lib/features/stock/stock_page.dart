@@ -819,6 +819,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/api.dart';
 import '../../providers/api_provider.dart';
+import '../../shared/app_ui.dart';
 
 class StockPage extends ConsumerStatefulWidget {
   const StockPage({super.key});
@@ -1209,24 +1210,33 @@ class _StockPageState extends ConsumerState<StockPage> {
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 children: [
-                  Row(
+                  // Wrap so the action buttons drop below the date on narrow
+                  // widths / large text scales instead of overflowing the row.
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Expanded(
-                        child: Text(
-                          'Day: ${DateFormat('dd MMM yyyy').format(_day)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
+                      AppText(
+                        'Day: ${DateFormat('dd MMM yyyy').format(_day)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: _busy ? null : _pickDay,
-                        icon: const Icon(Icons.date_range),
-                        label: const Text('Pick Day'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.icon(
-                        onPressed: _busy ? null : _loadReport,
-                        icon: const Icon(Icons.bar_chart),
-                        label: const Text('Load'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : _pickDay,
+                            icon: const Icon(Icons.date_range),
+                            label: const Text('Pick Day'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _busy ? null : _loadReport,
+                            icon: const Icon(Icons.bar_chart),
+                            label: const Text('Load'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1262,17 +1272,18 @@ class _StockPageState extends ConsumerState<StockPage> {
         ),
         const SizedBox(height: 6),
         ...rep.byProduct.map(
-          (t) => ListTile(
-            dense: true,
+          (t) => AppListCard(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            elevation: 0,
             leading: CircleAvatar(
-              child: Text(
+              child: AppText(
                 t.quantity.toString(),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            title: Text(t.name),
-            trailing: Text(_money.format(t.amount)),
-            subtitle: Text('Product #${t.productId} • ${t.category ?? "-"}'),
+            title: AppText(t.name),
+            subtitle: AppText('Product #${t.productId} • ${t.category ?? "-"}'),
+            trailing: [AppText(_money.format(t.amount))],
           ),
         ),
       ],
@@ -1383,9 +1394,9 @@ class _ProductSearchSheetState extends ConsumerState<_ProductSearchSheet> {
                   itemBuilder: (_, i) {
                     final p = _results[i];
                     return ListTile(
-                      title: Text(p.name),
+                      title: AppText(p.name),
                       subtitle:
-                          Text('ID ${p.id} • Stock ${p.stock} • ₹${p.price}'),
+                          AppText('ID ${p.id} • Stock ${p.stock} • ₹${p.price}'),
                       onTap: () => Navigator.pop(context, p),
                     );
                   },

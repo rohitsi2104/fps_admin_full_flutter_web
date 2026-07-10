@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../providers/api_provider.dart';
+import '../../shared/app_ui.dart';
 import 'billing_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,24 +234,26 @@ class _PosScreenState extends ConsumerState<PosScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Point of Sale',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                        letterSpacing: -0.2,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppText(
+                        'Point of Sale',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.2,
+                        ),
                       ),
-                    ),
-                    Text(
-                      dateStr,
-                      style: const TextStyle(fontSize: 12, color: _mutedText),
-                    ),
-                  ],
+                      AppText(
+                        dateStr,
+                        style: const TextStyle(fontSize: 12, color: _mutedText),
+                      ),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 // Refresh button
@@ -747,19 +750,17 @@ class _ProductTileState extends State<_ProductTile> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      AppText(
                         widget.product.name,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF1E293B),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       if (widget.product.unit != null) ...[
                         const SizedBox(height: 2),
-                        Text(
+                        AppText(
                           widget.product.unit!,
                           style: const TextStyle(
                               fontSize: 11, color: _mutedText),
@@ -770,19 +771,21 @@ class _ProductTileState extends State<_ProductTile> {
                 ),
                 const SizedBox(width: 10),
                 // Price badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 9, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    widget.money.format(widget.product.price),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: primary,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: AppText(
+                      widget.money.format(widget.product.price),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: primary,
+                      ),
                     ),
                   ),
                 ),
@@ -841,18 +844,17 @@ class _CartItemRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              AppText.multiline(
                 line.product.name,
+                maxLines: 2,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
-              Text(
+              AppText(
                 money.format(line.unitPrice),
                 style: const TextStyle(color: _mutedText, fontSize: 11),
               ),
@@ -867,7 +869,7 @@ class _CartItemRow extends StatelessWidget {
             _QtyBtn(icon: Icons.remove_rounded, onTap: onDec),
             SizedBox(
               width: 26,
-              child: Text(
+              child: AppText(
                 '${line.qty}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
@@ -884,7 +886,7 @@ class _CartItemRow extends StatelessWidget {
         // Line total
         SizedBox(
           width: 68,
-          child: Text(
+          child: AppText(
             money.format(line.lineTotal),
             textAlign: TextAlign.right,
             style: const TextStyle(
@@ -958,7 +960,7 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
+        AppText(
           label,
           style: TextStyle(
             color: labelColor,
@@ -966,12 +968,16 @@ class _SummaryRow extends StatelessWidget {
             fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            color: valColor,
-            fontSize: bold ? fontSize + 4 : fontSize,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+        const SizedBox(width: 8),
+        Flexible(
+          child: AppText(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: valColor,
+              fontSize: bold ? fontSize + 4 : fontSize,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+            ),
           ),
         ),
       ],

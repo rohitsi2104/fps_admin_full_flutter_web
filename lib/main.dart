@@ -107,6 +107,21 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'FPS Admin',
       debugShowCheckedModeBanner: false,
+      // Enterprise-grade guard: respect the user's font-size / display-size
+      // accessibility setting but clamp it to a safe range so layouts stay
+      // consistent across devices and never collapse into per-character
+      // wrapping on phones configured with very large fonts.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final clamped = mq.textScaler.clamp(
+          minScaleFactor: 1.0,
+          maxScaleFactor: 1.3,
+        );
+        return MediaQuery(
+          data: mq.copyWith(textScaler: clamped),
+          child: child!,
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,

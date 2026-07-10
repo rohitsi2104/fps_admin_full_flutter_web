@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../constants.dart';
 import '../../providers/orders_provider.dart';
+import '../../shared/app_ui.dart';
 import 'order_detail_page.dart';
 
 class OrdersListPage extends ConsumerStatefulWidget {
@@ -180,63 +181,40 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
                       final o = filtered[i];
                       final cs = Theme.of(context).colorScheme;
                       final chipColor = _statusChipColor(context, o.status);
-                      return Card(
-                        elevation: 2,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 14),
-                          title: Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              'Order #${o.id} • ₹${o.totalAmount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
+                      return AppListCard(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OrderDetailPage(order: o),
+                            ),
+                          );
+                        },
+                        title: AppText(
+                          'Order #${o.id} • ₹${o.totalAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: AppText(
+                          '${o.shippingName} • ${_statusChipText(o.status)}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        trailing: [
+                          AppText(
+                            df.format(o.createdAt.toLocal()),
+                            style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 15,
                             ),
                           ),
-                          subtitle: Text(
-                            '${o.shippingName} • ${_statusChipText(o.status)}',
-                            style: const TextStyle(fontSize: 16),
+                          StatusChip(
+                            text: _statusChipText(o.status),
+                            color: chipColor,
+                            fontSize: 15,
                           ),
-                          trailing: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 12,
-                            children: [
-                              Text(
-                                df.format(o.createdAt.toLocal()),
-                                style: TextStyle(
-                                  color: cs.onSurfaceVariant,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: chipColor.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                child: Text(
-                                  _statusChipText(o.status),
-                                  style: TextStyle(
-                                    color: chipColor,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => OrderDetailPage(order: o),
-                              ),
-                            );
-                          },
-                        ),
+                        ],
                       );
                     },
                   ),
