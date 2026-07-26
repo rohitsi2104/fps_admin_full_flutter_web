@@ -820,6 +820,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/api.dart';
 import '../../providers/api_provider.dart';
 import '../../shared/app_ui.dart';
+import '../announcement/announcement_page.dart';
 
 class StockPage extends ConsumerStatefulWidget {
   const StockPage({super.key});
@@ -1145,6 +1146,32 @@ class _StockPageState extends ConsumerState<StockPage> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          // Live home-screen message
+          Card(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: CircleAvatar(
+                  backgroundColor: cs.primaryContainer,
+                  child: const Icon(Icons.campaign_outlined)),
+              title: const Text('Home message'),
+              subtitle:
+                  const Text('Live message shown on the customer home screen'),
+              trailing: OutlinedButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AnnouncementPage(),
+                          ),
+                        ),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Export
           Card(
             shape:

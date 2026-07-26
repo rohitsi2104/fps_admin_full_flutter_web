@@ -1222,6 +1222,46 @@ class Api {
       imageName: filename,
     );
   }
+
+  /// Live home-screen message shown in the client app (GET /api/announcement/).
+  Future<Announcement> getAnnouncement() async {
+    final res = await _dio.get(
+      'announcement/',
+      options: Options(validateStatus: (s) => true),
+    );
+
+    if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
+      throw Exception(
+          'Failed to load message (${res.statusCode}): ${res.statusMessage}');
+    }
+    return Announcement.fromJson(
+        Map<String, dynamic>.from(res.data as Map));
+  }
+
+  /// Update the live home-screen message (PATCH /api/announcement/, admin only).
+  Future<Announcement> setAnnouncement({
+    required String message,
+    required bool isActive,
+  }) async {
+    final res = await _dio.patch(
+      'announcement/',
+      data: {'message': message, 'is_active': isActive},
+      options: Options(validateStatus: (s) => true),
+    );
+
+    if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
+      final body = res.data;
+      final msg = (body is Map)
+          ? (body['detail'] ??
+              body['message'] ??
+              body['error'] ??
+              'Save failed')
+          : 'Save failed';
+      throw Exception('$msg (${res.statusCode})');
+    }
+    return Announcement.fromJson(
+        Map<String, dynamic>.from(res.data as Map));
+  }
 }
 
 // ----------------- HELPERS -----------------
@@ -1251,6 +1291,18 @@ String _filenameFromContentDisposition(String? cd, {String fallback = 'file'}) {
 }
 
 // ----------------- MODELS -----------------
+
+class Announcement {
+  final String message;
+  final bool isActive;
+
+  Announcement({required this.message, required this.isActive});
+
+  factory Announcement.fromJson(Map<String, dynamic> j) => Announcement(
+        message: (j['message'] ?? '').toString(),
+        isActive: j['is_active'] == true,
+      );
+}
 
 class Order {
   final int id;
