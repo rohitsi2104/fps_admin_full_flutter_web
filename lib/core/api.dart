@@ -1249,7 +1249,13 @@ class Api {
     final res = await _dio.patch(
       'announcement/',
       data: {'message': message, 'is_active': isActive, 'notify': notify},
-      options: Options(validateStatus: (s) => true),
+      options: Options(
+        validateStatus: (s) => true,
+        // Notifying a large audience can take longer than the default 20s
+        // receive timeout; give this (infrequent) admin action more headroom.
+        receiveTimeout: const Duration(seconds: 90),
+        sendTimeout: const Duration(seconds: 90),
+      ),
     );
 
     if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
