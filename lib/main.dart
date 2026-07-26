@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'core/router.dart';
 import 'firebase_options.dart';
 import 'services/push_service.dart';
+import 'shared/screen_magnifier.dart';
 
 // FCM Background handler must be at top-level
 @pragma('vm:entry-point')
@@ -119,7 +120,9 @@ class MyApp extends ConsumerWidget {
         );
         return MediaQuery(
           data: mq.copyWith(textScaler: clamped),
-          child: child!,
+          // Whole-app screen magnifier: double-tap toggles zoom for low-vision
+          // users. Transparent (no-op) at 1x.
+          child: ScreenMagnifier(child: child!),
         );
       },
       theme: ThemeData(
