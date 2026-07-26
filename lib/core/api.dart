@@ -1239,13 +1239,16 @@ class Api {
   }
 
   /// Update the live home-screen message (PATCH /api/announcement/, admin only).
+  /// When [notify] is true, the backend also pushes the message to all client
+  /// devices; the returned [Announcement.notified] reports how many were sent.
   Future<Announcement> setAnnouncement({
     required String message,
     required bool isActive,
+    bool notify = false,
   }) async {
     final res = await _dio.patch(
       'announcement/',
-      data: {'message': message, 'is_active': isActive},
+      data: {'message': message, 'is_active': isActive, 'notify': notify},
       options: Options(validateStatus: (s) => true),
     );
 
@@ -1296,11 +1299,19 @@ class Announcement {
   final String message;
   final bool isActive;
 
-  Announcement({required this.message, required this.isActive});
+  /// Number of client devices notified on the last save (write responses only).
+  final int notified;
+
+  Announcement({
+    required this.message,
+    required this.isActive,
+    this.notified = 0,
+  });
 
   factory Announcement.fromJson(Map<String, dynamic> j) => Announcement(
         message: (j['message'] ?? '').toString(),
         isActive: j['is_active'] == true,
+        notified: (j['notified'] as num?)?.toInt() ?? 0,
       );
 }
 

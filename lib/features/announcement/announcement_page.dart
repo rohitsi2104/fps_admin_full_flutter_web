@@ -16,6 +16,7 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
   final _msgCtrl = TextEditingController();
 
   bool _isActive = true;
+  bool _notify = true; // push to client devices on save
   bool _loading = false; // initial fetch
   bool _saving = false;
   String? _error;
@@ -53,13 +54,18 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
       _error = null;
     });
     try {
-      await ref.read(apiProvider).setAnnouncement(
+      final result = await ref.read(apiProvider).setAnnouncement(
             message: _msgCtrl.text.trim(),
             isActive: _isActive,
+            notify: _notify && _isActive,
           );
       if (!mounted) return;
+      final msg = (_notify && _isActive)
+          ? 'Home message updated · notified ${result.notified} '
+              '${result.notified == 1 ? 'device' : 'devices'}'
+          : 'Home message updated';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Home message updated')),
+        SnackBar(content: Text(msg)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -150,6 +156,23 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
                                   ? null
                                   : (v) => setState(() => _isActive = v),
                               title: const Text('Show on home screen'),
+                            ),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
+                              value: _notify && _isActive,
+                              onChanged: (_saving || !_isActive)
+                                  ? null
+                                  : (v) => setState(() => _notify = v ?? false),
+                              title: const Text('Notify users'),
+                              subtitle: Text(
+                                _isActive
+                                    ? 'Send a push notification to all customers on save'
+                                    : 'Turn the card on to notify users',
+                                style: TextStyle(
+                                    color: cs.onSurfaceVariant, fontSize: 12),
+                              ),
                             ),
                             if (_error != null) ...[
                               const SizedBox(height: 8),
