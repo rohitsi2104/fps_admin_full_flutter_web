@@ -87,7 +87,7 @@ Widget _shippingCard() {
           ListTile(
             leading: const Icon(Icons.location_on, color: Colors.blueGrey),
             title: const AppText(_longName),
-            subtitle: AppText.multiline(
+            subtitle: const AppText.multiline(
               '$_addr1\n$_addr2\nDayalbagh, Agra, Uttar Pradesh 282005\n'
               'Placed: $_created',
               maxLines: 5,
@@ -120,13 +120,13 @@ Widget _shippingCard() {
           const Divider(height: 1),
           ListTile(
             visualDensity: VisualDensity.compact,
-            title: Row(
+            title: const Row(
               children: [
-                const Icon(Icons.phone_outlined, size: 18),
-                const SizedBox(width: 8),
+                Icon(Icons.phone_outlined, size: 18),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
-                    const TextSpan(
+                    TextSpan(
                       text: 'Shipping: ',
                       children: [
                         TextSpan(
@@ -153,13 +153,13 @@ Widget _shippingCard() {
           ),
           ListTile(
             visualDensity: VisualDensity.compact,
-            title: Row(
+            title: const Row(
               children: [
-                const Icon(Icons.account_circle_outlined, size: 18),
-                const SizedBox(width: 8),
+                Icon(Icons.account_circle_outlined, size: 18),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
-                    const TextSpan(
+                    TextSpan(
                       text: 'Account: ',
                       children: [
                         TextSpan(

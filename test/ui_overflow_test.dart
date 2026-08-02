@@ -91,16 +91,16 @@ void main() {
       await pumpOnDevice(
         tester,
         const DeviceConfig('narrow', 200, 400, 1.5),
-        Row(
+        const Row(
           children: [
-            const Icon(Icons.tag),
+            Icon(Icons.tag),
             Expanded(
               child: AppText(
                 'Supercalifragilisticexpialidociousproductname1234567890',
                 style: TextStyle(fontSize: 20),
               ),
             ),
-            const Icon(Icons.chevron_right),
+            Icon(Icons.chevron_right),
           ],
         ),
       );
@@ -131,15 +131,15 @@ void main() {
       await pumpOnDevice(
         tester,
         const DeviceConfig('narrow', 260, 500, 1.5),
-        AppListCard(
-          title: const AppText('Order #928 • ₹140.00',
+        const AppListCard(
+          title: AppText('Order #928 • ₹140.00',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          subtitle: const AppText('V Soami Dayal • Confirmed'),
+          subtitle: AppText('V Soami Dayal • Confirmed'),
           trailing: [
-            const AppText('2026-04-30 09:33', style: TextStyle(fontSize: 15)),
+            AppText('2026-04-30 09:33', style: TextStyle(fontSize: 15)),
             StatusChip(
                 text: 'Confirmed',
-                color: const Color(0xFFB58105),
+                color: Color(0xFFB58105),
                 fontSize: 15),
           ],
         ),

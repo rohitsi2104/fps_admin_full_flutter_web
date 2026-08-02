@@ -21,12 +21,12 @@ void main() {
                         TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                 subtitle: const AppText('V Soami Dayal • Confirmed',
                     style: TextStyle(fontSize: 16)),
-                trailing: [
-                  const AppText('2026-04-30 09:33',
+                trailing: const [
+                  AppText('2026-04-30 09:33',
                       style: TextStyle(fontSize: 15)),
                   StatusChip(
                       text: 'Confirmed',
-                      color: const Color(0xFFB58105),
+                      color: Color(0xFFB58105),
                       fontSize: 15),
                 ],
               ),

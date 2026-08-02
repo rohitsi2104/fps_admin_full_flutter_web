@@ -66,7 +66,7 @@ class _ProductCardRepro extends StatelessWidget {
             ),
             Expanded(
               child: Container(
-                color: cs.surfaceVariant,
+                color: cs.surfaceContainerHighest,
                 child: const Icon(Icons.inventory_2_outlined,
                     size: 40, color: Colors.grey),
               ),

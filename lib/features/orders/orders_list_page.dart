@@ -113,7 +113,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage>
           // Date filter bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(

@@ -383,7 +383,7 @@
 //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
 //       decoration: BoxDecoration(
 //         borderRadius: BorderRadius.circular(10),
-//         color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+//         color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
 //       ),
 //       child: Column(
 //         mainAxisSize: MainAxisSize.min,
@@ -788,7 +788,7 @@
 //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
 //       decoration: BoxDecoration(
 //         borderRadius: BorderRadius.circular(10),
-//         color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+//         color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
 //       ),
 //       child: Column(
 //         mainAxisSize: MainAxisSize.min,
@@ -821,6 +821,7 @@ import '../../core/api.dart';
 import '../../providers/api_provider.dart';
 import '../../shared/app_ui.dart';
 import '../announcement/announcement_page.dart';
+import '../store/store_status_page.dart';
 
 class StockPage extends ConsumerStatefulWidget {
   const StockPage({super.key});
@@ -1075,9 +1076,10 @@ class _StockPageState extends ConsumerState<StockPage> {
                             imagePath: newImagePath,
                             imageName: newImageName,
                           );
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx, true);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          if (!mounted) return;
+                          final messenger = ScaffoldMessenger.of(context);
+                          if (ctx.mounted) Navigator.pop(ctx, true);
+                          messenger.showSnackBar(
                             const SnackBar(content: Text('Product updated')),
                           );
                         } catch (e) {
@@ -1167,6 +1169,32 @@ class _StockPageState extends ConsumerState<StockPage> {
                         ),
                 icon: const Icon(Icons.edit),
                 label: const Text('Edit'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Order acceptance (maintenance toggle)
+          Card(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: CircleAvatar(
+                  backgroundColor: cs.tertiaryContainer,
+                  child: const Icon(Icons.storefront_outlined)),
+              title: const Text('Order acceptance'),
+              subtitle: const Text(
+                  'Pause new customer orders (maintenance / closed time)'),
+              trailing: OutlinedButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const StoreStatusPage(),
+                          ),
+                        ),
+                icon: const Icon(Icons.tune),
+                label: const Text('Manage'),
               ),
             ),
           ),
@@ -1344,7 +1372,7 @@ class _StockPageState extends ConsumerState<StockPage> {
 
 /// Bottom sheet to search products (name) and choose one.
 class _ProductSearchSheet extends ConsumerStatefulWidget {
-  const _ProductSearchSheet({super.key});
+  const _ProductSearchSheet();
 
   @override
   ConsumerState<_ProductSearchSheet> createState() => _ProductSearchSheetState();

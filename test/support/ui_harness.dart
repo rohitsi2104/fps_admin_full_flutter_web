@@ -75,7 +75,7 @@ void expectNotCollapsed(
     size.height,
     lessThan(ceiling),
     reason:
-        '${label ?? finder.description} collapsed: height ${size.height.toStringAsFixed(1)}px '
+        '${label ?? finder.describeMatch(Plurality.zero)} collapsed: height ${size.height.toStringAsFixed(1)}px '
         'exceeds $maxLines-line ceiling ${ceiling.toStringAsFixed(1)}px '
         '(font $fontSize @${textScale}x). Likely per-character wrapping.',
   );

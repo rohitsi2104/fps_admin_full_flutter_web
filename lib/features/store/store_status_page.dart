@@ -3,21 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/api_provider.dart';
 
-/// Admin editor for the live message shown on the client app's home screen.
-class AnnouncementPage extends ConsumerStatefulWidget {
-  const AnnouncementPage({super.key});
+/// Admin editor for the "accepting orders" toggle + pause message shown to
+/// customers when the store isn't taking orders (maintenance mode).
+class StoreStatusPage extends ConsumerStatefulWidget {
+  const StoreStatusPage({super.key});
 
   @override
-  ConsumerState<AnnouncementPage> createState() => _AnnouncementPageState();
+  ConsumerState<StoreStatusPage> createState() => _StoreStatusPageState();
 }
 
-class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
+class _StoreStatusPageState extends ConsumerState<StoreStatusPage> {
   final _formKey = GlobalKey<FormState>();
   final _msgCtrl = TextEditingController();
 
-  bool _isActive = true;
-  bool _notify = true; // push to client devices on save
-  bool _loading = false; // initial fetch
+  bool _accepting = true;
+  bool _loading = false;
   bool _saving = false;
   String? _error;
 
@@ -33,10 +33,10 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
       _error = null;
     });
     try {
-      final a = await ref.read(apiProvider).getAnnouncement();
+      final s = await ref.read(apiProvider).getStoreStatus();
       if (!mounted) return;
-      _msgCtrl.text = a.message;
-      _isActive = a.isActive;
+      _msgCtrl.text = s.pauseMessage;
+      _accepting = s.acceptingOrders;
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -55,18 +55,17 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
       _error = null;
     });
     try {
-      final result = await ref.read(apiProvider).setAnnouncement(
-            message: _msgCtrl.text.trim(),
-            isActive: _isActive,
-            notify: _notify && _isActive,
+      await ref.read(apiProvider).setStoreStatus(
+            acceptingOrders: _accepting,
+            pauseMessage: _msgCtrl.text.trim(),
           );
       if (!mounted) return;
-      final msg = (_notify && _isActive)
-          ? 'Home message updated · notified ${result.notified} '
-              '${result.notified == 1 ? 'device' : 'devices'}'
-          : 'Home message updated';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
+        SnackBar(
+          content: Text(_accepting
+              ? 'Store is now accepting orders'
+              : 'Store is PAUSED — customers cannot place orders'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -90,10 +89,11 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final paused = !_accepting;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home message'),
+        title: const Text('Order acceptance'),
         actions: [
           IconButton(
             tooltip: 'Reload',
@@ -119,62 +119,79 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Live message on customer home screen',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Shown as a card at the top of the app. Turn off to hide the card without deleting the text.',
-                              style: TextStyle(
-                                  color: cs.onSurfaceVariant, fontSize: 13),
+                            // Current-state banner
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: paused
+                                    ? cs.errorContainer
+                                    : cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    paused
+                                        ? Icons.pause_circle_filled
+                                        : Icons.check_circle,
+                                    color: paused
+                                        ? cs.onErrorContainer
+                                        : cs.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      paused
+                                          ? 'Not accepting orders'
+                                          : 'Accepting orders',
+                                      style: TextStyle(
+                                        color: paused
+                                            ? cs.onErrorContainer
+                                            : cs.onPrimaryContainer,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _msgCtrl,
-                              minLines: 3,
-                              maxLines: 6,
-                              maxLength: 500,
-                              decoration: const InputDecoration(
-                                labelText: 'Message',
-                                alignLabelWithHint: true,
-                                border: OutlineInputBorder(),
-                                hintText:
-                                    'e.g. Store closed on Sunday for inventory.',
-                              ),
-                              validator: (v) {
-                                if (_isActive &&
-                                    (v == null || v.trim().isEmpty)) {
-                                  return 'Enter a message or turn the card off';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 4),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              value: _isActive,
+                              value: _accepting,
                               onChanged: _saving
                                   ? null
-                                  : (v) => setState(() => _isActive = v),
-                              title: const Text('Show on home screen'),
-                            ),
-                            CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              controlAffinity:
-                                  ListTileControlAffinity.leading,
-                              value: _notify && _isActive,
-                              onChanged: (_saving || !_isActive)
-                                  ? null
-                                  : (v) => setState(() => _notify = v ?? false),
-                              title: const Text('Notify users'),
+                                  : (v) => setState(() => _accepting = v),
+                              title: const Text('Accept new online orders'),
                               subtitle: Text(
-                                _isActive
-                                    ? 'Send a push notification to all customers on save'
-                                    : 'Turn the card on to notify users',
+                                _accepting
+                                    ? 'Customers can place orders as normal'
+                                    : 'Customers see a pause message and cannot check out',
                                 style: TextStyle(
                                     color: cs.onSurfaceVariant, fontSize: 12),
                               ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _msgCtrl,
+                              minLines: 2,
+                              maxLines: 5,
+                              maxLength: 300,
+                              decoration: const InputDecoration(
+                                labelText: 'Message shown to customers when paused',
+                                alignLabelWithHint: true,
+                                border: OutlineInputBorder(),
+                                hintText:
+                                    'e.g. Closed for stock intake. Back at 5 PM.',
+                              ),
+                              validator: (v) {
+                                if (!_accepting &&
+                                    (v == null || v.trim().isEmpty)) {
+                                  return 'Enter a message so customers know why';
+                                }
+                                return null;
+                              },
                             ),
                             if (_error != null) ...[
                               const SizedBox(height: 8),
@@ -182,7 +199,7 @@ class _AnnouncementPageState extends ConsumerState<AnnouncementPage> {
                                   style:
                                       TextStyle(color: cs.error, fontSize: 13)),
                             ],
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                             FilledButton.icon(
                               onPressed: _saving ? null : _save,
                               icon: _saving

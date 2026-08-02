@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/api_provider.dart';
 import '../../config.dart'; // kBaseUrl
@@ -58,8 +57,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

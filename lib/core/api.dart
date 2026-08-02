@@ -814,7 +814,6 @@ import 'dart:typed_data';
 //       );
 // }
 // lib/api.dart
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 double _toDouble(dynamic v) {
@@ -1238,6 +1237,49 @@ class Api {
         Map<String, dynamic>.from(res.data as Map));
   }
 
+  /// Whether the store is currently accepting online orders + the message
+  /// shown to clients when it isn't (GET /api/store/status/).
+  Future<StoreStatus> getStoreStatus() async {
+    final res = await _dio.get(
+      'store/status/',
+      options: Options(validateStatus: (s) => true),
+    );
+
+    if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
+      throw Exception(
+          'Failed to load store status (${res.statusCode}): ${res.statusMessage}');
+    }
+    return StoreStatus.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  /// Update the store's accepting-orders state and pause message
+  /// (PATCH /api/store/status/, admin only).
+  Future<StoreStatus> setStoreStatus({
+    required bool acceptingOrders,
+    required String pauseMessage,
+  }) async {
+    final res = await _dio.patch(
+      'store/status/',
+      data: {
+        'accepting_orders': acceptingOrders,
+        'pause_message': pauseMessage,
+      },
+      options: Options(validateStatus: (s) => true),
+    );
+
+    if ((res.statusCode ?? 500) >= 400 || res.data is! Map) {
+      final body = res.data;
+      final msg = (body is Map)
+          ? (body['detail'] ??
+              body['message'] ??
+              body['error'] ??
+              'Save failed')
+          : 'Save failed';
+      throw Exception('$msg (${res.statusCode})');
+    }
+    return StoreStatus.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
   /// Update the live home-screen message (PATCH /api/announcement/, admin only).
   /// When [notify] is true, the backend also pushes the message to all client
   /// devices; the returned [Announcement.notified] reports how many were sent.
@@ -1318,6 +1360,21 @@ class Announcement {
         message: (j['message'] ?? '').toString(),
         isActive: j['is_active'] == true,
         notified: (j['notified'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class StoreStatus {
+  /// Whether the store is currently accepting new online orders.
+  final bool acceptingOrders;
+
+  /// Message shown to clients when [acceptingOrders] is false.
+  final String pauseMessage;
+
+  StoreStatus({required this.acceptingOrders, required this.pauseMessage});
+
+  factory StoreStatus.fromJson(Map<String, dynamic> j) => StoreStatus(
+        acceptingOrders: j['accepting_orders'] == true,
+        pauseMessage: (j['pause_message'] ?? '').toString(),
       );
 }
 
@@ -1472,9 +1529,10 @@ class DailySales {
     final m = (j['by_source'] as Map?) ?? const {};
     for (final k in m.keys) {
       final v = m[k];
-      if (v is Map)
+      if (v is Map) {
         src[k.toString()] =
             SourceSummary.fromJson(Map<String, dynamic>.from(v));
+      }
     }
 
     return DailySales(

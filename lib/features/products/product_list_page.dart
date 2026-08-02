@@ -9,7 +9,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/api.dart';
 import '../../providers/api_provider.dart';
 import '../../shared/app_ui.dart';
-import '../stock/stock_page.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
   const ProductListPage({super.key});
@@ -76,7 +75,7 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     final isWide = MediaQuery.of(context).size.width > 600;
 
     return Scaffold(
-      backgroundColor: cs.surfaceVariant.withValues(alpha: 0.3),
+      backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
       appBar: AppBar(
         title: const Text('Product Catalog'),
         elevation: 0,
@@ -223,29 +222,29 @@ class _ProductCard extends StatelessWidget {
                       memCacheWidth: 400,
                       maxWidthDiskCache: 400,
                       errorWidget: (_, __, ___) => Container(
-                        color: cs.surfaceVariant,
+                        color: cs.surfaceContainerHighest,
                         child: const Icon(Icons.image_not_supported_outlined),
                       ),
                       placeholder: (context, _) => Container(
-                        color: cs.surfaceVariant,
+                        color: cs.surfaceContainerHighest,
                         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                       ),
                     )
                   else
                     Container(
-                      color: cs.surfaceVariant,
+                      color: cs.surfaceContainerHighest,
                       child: const Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey),
                     ),
                   
                   // Status Badges
                   if (isOutOfStock)
-                    Positioned(
+                    const Positioned(
                       top: 8,
                       right: 8,
                       child: _Badge(label: 'OUT OF STOCK', color: Colors.red),
                     )
                   else if (isLowStock)
-                    Positioned(
+                    const Positioned(
                       top: 8,
                       right: 8,
                       child: _Badge(label: 'LOW STOCK', color: Colors.orange),
@@ -373,7 +372,7 @@ class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
     
     setState(() => _busy = true);
     try {
-      final updated = await ref.read(apiProvider).updateProductFull(
+      await ref.read(apiProvider).updateProductFull(
         productId: _product.id,
         stock: s,
         price: p,
@@ -435,7 +434,7 @@ class _QuickEditSheetState extends ConsumerState<_QuickEditSheet> {
                 decoration: BoxDecoration(
                   border: Border.all(color: cs.outlineVariant),
                   borderRadius: BorderRadius.circular(16),
-                  color: cs.surfaceVariant.withValues(alpha: 0.3),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Stack(

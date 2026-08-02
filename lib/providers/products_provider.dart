@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/api.dart';
 import 'api_provider.dart';
 
 final productsProvider = AsyncNotifierProvider<ProductsNotifier, List<dynamic>>(

@@ -149,7 +149,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     if (!mounted) return;
 
     // Ask quantity
-    int quantity = 1;
     final qty = await showDialog<int>(
       context: context,
       builder: (ctx) {
@@ -471,6 +470,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
     Order? original;
     if (optimistic != null) {
+      original = _order;
       setState(() => _order = optimistic(_order!));
       if (onInitialStateApplied != null) onInitialStateApplied();
     }
@@ -488,13 +488,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       });
     } on DioException catch (e) {
       if (!mounted) return;
-      if (original != null) setState(() => _order = original!);
+      if (original != null) setState(() => _order = original);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: ${e.response?.data['detail'] ?? e.message}')));
       setState(() => _pendingStatus = null);
     } catch (e) {
       if (!mounted) return;
-      if (original != null) setState(() => _order = original!);
+      if (original != null) setState(() => _order = original);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       setState(() => _pendingStatus = null);
     }
